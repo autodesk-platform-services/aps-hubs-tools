@@ -1,27 +1,27 @@
 {
-  "name": "ModelDerivative.API.sample",
-  "description": "Basic Node.js sample for the Model Derivative API",
-  "repository": "https://github.com/developer-autodesk/model.derivative-nodejs-sample",
-  "logo": "https://avatars0.githubusercontent.com/u/8017462?v=3&s=200",
+  "name": "Hubs Tools",
+  "description": "Node.js sample for the Data Management and Model Derivative API",
+  "repository": "https://github.com/autodesk-platform-services/aps-hubs-tools",
+  "logo": "https://cdn.autodesk.io/logo/black/logo.png",
   "keywords": [
     "express",
     "framework",
     "autodesk",
-    "forge",
+    "aps",
     "template"
   ],
   "env": {
-    "FORGE_CLIENT_ID": {
-      "description": "Forge Client ID"
+    "APS_CLIENT_ID": {
+      "description": "Client ID"
     },
-    "FORGE_CLIENT_SECRET": {
-      "description": "Forge Client Secret"
+    "APS_CLIENT_SECRET": {
+      "description": "Client Secret"
     },
-    "FORGE_CALLBACK_URL": {
+    "APS_CALLBACK_URL": {
       "description": "Callback URL of your app, required for 3-legged OAuth",
-      "value": "https://<<YOUR HEROKU APP NAME HERE>>.herokuapp.com/api/forge/callback/oauth"
+      "value": "https://<<YOUR HEROKU APP NAME HERE>>.herokuapp.com/api/aps/callback/oauth"
     }
   },
-  "website": "https://developer.autodesk.com/",
+  "website": "https://aps.autodesk.com/",
   "success_url": "/"
 }

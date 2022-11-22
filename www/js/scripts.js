@@ -8,11 +8,11 @@ $(document).ready(function () {
 
     // Make sure that "change" event is fired
     // even if same file is selected for upload
-    $("#forgeUploadHidden").click(function (evt) {
+    $("#apsUploadHidden").click(function (evt) {
         evt.target.value = "";
     });
 
-    $("#forgeUploadHidden").change(function (evt) {
+    $("#apsUploadHidden").change(function (evt) {
 
         showProgress("Uploading file... ", "inprogress");
         var data = new FormData();
@@ -31,7 +31,7 @@ $(document).ready(function () {
             console.log('Uploaded file "' + data.fileName + '" with urn = ' + data.objectId);
 
             // Refresh file tree
-            //$('#forgeFiles').jstree("refresh");
+            //$('#apsFiles').jstree("refresh");
 
             showProgress("Upload successful", "success");
         }).fail(function (xhr, ajaxOptions, thrownError) {
@@ -42,7 +42,7 @@ $(document).ready(function () {
 
     var upload = $("#uploadFile").click(function (evt) {
         evt.preventDefault();
-        $("#forgeUploadHidden").trigger("click");
+        $("#apsUploadHidden").trigger("click");
     });
 
     // Get the tokens
@@ -414,7 +414,7 @@ function delManifest(urn, onsuccess) {
 }
 
 /////////////////////////////////////////////////////////////////
-// Formats / #forgeFormats
+// Formats / #apsFormats
 // Shows the export file formats available for the selected model
 /////////////////////////////////////////////////////////////////
 
@@ -436,19 +436,19 @@ function getFormats(onsuccess) {
 
 function fillFormats() {
     getFormats(function (data) {
-        var forgeFormats = $("#forgeFormats");
-        forgeFormats.data("forgeFormats", data);
+        var apsFormats = $("#apsFormats");
+        apsFormats.data("apsFormats", data);
 
         var download = $("#downloadExport");
         download.click(function () {
             MyVars.keepTrying = true;
 
-            var elem = $("#forgeHierarchy");
+            var elem = $("#apsHierarchy");
             var tree = elem.jstree();
             var rootNodeId = tree.get_node('#').children[0];
             var rootNode = tree.get_node(rootNodeId);
 
-            var format = $("#forgeFormats").val();
+            var format = $("#apsFormats").val();
             var urn = MyVars.selectedUrn;
             var guid = MyVars.selectedGuid;
             var fileName = rootNode.text + "." + format;
@@ -530,23 +530,23 @@ function fillFormats() {
 
 function updateFormats(format) {
 
-    var forgeFormats = $("#forgeFormats");
-    var formats = forgeFormats.data("forgeFormats");
-    forgeFormats.empty();
+    var apsFormats = $("#apsFormats");
+    var formats = apsFormats.data("apsFormats");
+    apsFormats.empty();
 
     // obj is not listed for all possible files
     // using this workaround for the time being
-    //forgeFormats.append($("<option />").val('obj').text('obj'));
+    //apsFormats.append($("<option />").val('obj').text('obj'));
 
     $.each(formats.formats, function (key, value) {
         if (key === 'obj' || value.indexOf(format) > -1) {
-            forgeFormats.append($("<option />").val(key).text(key));
+            apsFormats.append($("<option />").val(key).text(key));
         }
     });
 }
 
 /////////////////////////////////////////////////////////////////
-// Files Tree / #forgeFiles
+// Files Tree / #apsFiles
 // Shows the A360 hubs, projects, folders and files of
 // the logged in user
 /////////////////////////////////////////////////////////////////
@@ -555,11 +555,11 @@ var haveBIM360Hub = false;
 
 function prepareFilesTree() {
     console.log("prepareFilesTree");
-    $.getJSON("/api/forge/clientID", function (res) {
-        $("#ClientID").val(res.ForgeClientId);
+    $.getJSON("/api/aps/clientID", function (res) {
+        $("#ClientID").val(res.apsClientId);
     });
 
-    $('#forgeFiles').jstree({
+    $('#apsFiles').jstree({
         'core': {
             'themes': { "icons": true },
             'check_callback': true, // make it modifiable
@@ -582,7 +582,7 @@ function prepareFilesTree() {
                         $("#provisionAccountModal").modal();
                         $("#provisionAccountSave").click(function () {
                             $('#provisionAccountModal').modal('toggle');
-                            $('#forgeFiles').jstree(true).refresh();
+                            $('#apsFiles').jstree(true).refresh();
                         });
                         haveBIM360Hub = true;
                     }
@@ -622,7 +622,7 @@ function prepareFilesTree() {
         cleanupViewer();
 
         // Disable the hierarchy related controls for the time being
-        //$("#forgeFormats").attr('disabled', 'disabled');
+        //$("#apsFormats").attr('disabled', 'disabled');
         //$("#downloadExport").attr('disabled', 'disabled');
 
         if (data.node.type === 'versions') {
@@ -633,13 +633,13 @@ function prepareFilesTree() {
             MyVars.selectedNode = data.node;
 
             // Clear hierarchy tree
-            $('#forgeHierarchy').empty().jstree('destroy');
+            $('#apsHierarchy').empty().jstree('destroy');
 
             // Clear properties tree
-            $('#forgeProperties').empty().jstree('destroy');
+            $('#apsProperties').empty().jstree('destroy');
 
             // Delete cached data
-            $('#forgeProperties').data('forgeProperties', null);
+            $('#apsProperties').data('apsProperties', null);
 
             updateFormats(data.node.original.fileType);
 
@@ -680,12 +680,12 @@ function prepareFilesTree() {
 
             // Just open the children of the node, so that it's easier
             // to find the actual versions
-            $("#forgeFiles").jstree("open_node", data.node);
+            $("#apsFiles").jstree("open_node", data.node);
 
             // And clear trees to avoid confusion thinking that the
             // data belongs to the clicked model
-            $('#forgeHierarchy').empty().jstree('destroy');
-            $('#forgeProperties').empty().jstree('destroy');
+            $('#apsHierarchy').empty().jstree('destroy');
+            $('#apsProperties').empty().jstree('destroy');
         }
     });
 }
@@ -794,7 +794,7 @@ function getPublicUrl(id) {
 }
 
 /////////////////////////////////////////////////////////////////
-// Hierarchy Tree / #forgeHierarchy
+// Hierarchy Tree / #apsHierarchy
 // Shows the hierarchy of components in selected model
 /////////////////////////////////////////////////////////////////
 
@@ -861,7 +861,7 @@ function prepareHierarchyTree(urn, guid, json) {
     addHierarchy(json.objects);
 
     // Enable the hierarchy related controls
-    //$("#forgeFormats").removeAttr('disabled');
+    //$("#apsFormats").removeAttr('disabled');
     //$("#downloadExport").removeAttr('disabled');
 
     // Store info of selected item
@@ -869,7 +869,7 @@ function prepareHierarchyTree(urn, guid, json) {
     MyVars.selectedGuid = guid;
 
     // init the tree
-    $('#forgeHierarchy').jstree({
+    $('#apsHierarchy').jstree({
         'core': {
             'check_callback': true,
             'themes': { "icons": true },
@@ -900,7 +900,7 @@ function prepareHierarchyTree(urn, guid, json) {
             var objectId = data.node.original.objectid;
 
             // Empty the property tree
-            $('#forgeProperties').empty().jstree('destroy');
+            $('#apsProperties').empty().jstree('destroy');
 
             fetchProperties(urn, guid, function (props) {
                 preparePropertyTree(urn, guid, objectId, props);
@@ -912,7 +912,7 @@ function prepareHierarchyTree(urn, guid, json) {
         // caused by a viewer selection which is calling
         // selectInHierarchyTree()
         if (!MyVars.selectingInHierarchyTree) {
-            var elem = $('#forgeHierarchy');
+            var elem = $('#apsHierarchy');
             var nodeIds = elem.jstree("get_checked", null, true);
 
             // Convert from strings to numbers
@@ -930,7 +930,7 @@ function selectInHierarchyTree(objectIds) {
     MyVars.selectingInHierarchyTree = true;
 
     try {
-        var tree = $("#forgeHierarchy").jstree();
+        var tree = $("#apsHierarchy").jstree();
 
         // First remove all the selection
         tree.uncheck_all();
@@ -956,7 +956,7 @@ function hierarchyTreeContextMenu(node, callback) {
     var menuItem = {
         "label": "Select in Fusion",
         "action": function (obj) {
-            var path = $("#forgeHierarchy").jstree().get_path(node, '/');
+            var path = $("#apsHierarchy").jstree().get_path(node, '/');
             alert(path);
 
             // Open this in the browser:
@@ -974,7 +974,7 @@ function hierarchyTreeContextMenu(node, callback) {
 }
 
 /////////////////////////////////////////////////////////////////
-// Property Tree / #forgeProperties
+// Property Tree / #apsProperties
 // Shows the properties of the selected sub-component
 /////////////////////////////////////////////////////////////////
 
@@ -983,10 +983,10 @@ function hierarchyTreeContextMenu(node, callback) {
 // hierarchy tree we can reuse it instead of sending out another
 // http request
 function fetchProperties(urn, guid, onsuccess) {
-    var props = $("#forgeProperties").data("forgeProperties");
+    var props = $("#apsProperties").data("apsProperties");
     if (!props) {
         getProperties(urn, guid, function (data) {
-            $("#forgeProperties").data("forgeProperties", data.data);
+            $("#apsProperties").data("apsProperties", data.data);
             onsuccess(data.data);
         })
     } else {
@@ -1033,7 +1033,7 @@ function preparePropertyTree(urn, guid, objectId, props) {
     addProperties(data, props.collection);
 
     // init the tree
-    $('#forgeProperties').jstree({
+    $('#apsProperties').jstree({
         'core': {
             'check_callback': true,
             'themes': { "icons": true },
@@ -1072,14 +1072,14 @@ function cleanupViewer() {
         MyVars.viewer.tearDown();
         MyVars.viewer.setUp(MyVars.viewer.config);
 
-        document.getElementById('forgeViewer').style.display = 'none';
+        document.getElementById('apsViewer').style.display = 'none';
     }
 }
 
 function initializeViewer(urn) {
     cleanupViewer();
 
-    document.getElementById('forgeViewer').style.display = 'block';
+    document.getElementById('apsViewer').style.display = 'block';
 
     console.log("Launching Autodesk Viewer for: " + urn);
 
@@ -1092,7 +1092,7 @@ function initializeViewer(urn) {
     if (MyVars.viewer) {
         loadDocument(MyVars.viewer, options.document);
     } else {
-        var viewerElement = document.getElementById('forgeViewer');
+        var viewerElement = document.getElementById('apsViewer');
         var config = {
             extensions: ['Autodesk.Viewing.WebVR', 'Autodesk.Viewing.MarkupsGui'],
             experimental: ['webVR_orbitModel']

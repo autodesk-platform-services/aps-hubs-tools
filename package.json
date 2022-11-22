@@ -1,7 +1,7 @@
 {
-  "name": "derivative-service-node.js-sample",
+  "name": "aps-hubs-tools",
   "version": "2.0.0",
-  "description": "A sample that shows how to use the Model Derivative API.",
+  "description": "A sample that shows how to use the Data Management and Model Derivative API",
   "dependencies": {
     "body-parser": "^1.18.2",
     "cookie-parser": "^1.4.3",
@@ -20,13 +20,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/developer-autodesk/model.derivative-nodejs-sample"
+    "url": "git://github.com/autodesk-platform-services/aps-hubs-tools"
   },
   "scripts": {
     "start": "NODE_ENV=production node start.js",
     "dev": "node start.js",
     "nodemon": "nodemon start.js --ignore www/"
   },
-  "author": "Forge Partner Development",
+  "author": "Autodesk Partner Development",
   "license": "MIT"
 }
