@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////
 // Copyright (c) Autodesk, Inc. All rights reserved
-// Written by Forge Partner Development
+// Written by Autodesk Partner Development
 //
 // Permission to use, copy, modify, and distribute this software in
 // object code form for any purpose and without fee is hereby granted,
@@ -21,8 +21,8 @@ const session = require('express-session');
 const cookieParser = require('cookie-parser');
 var enforce = require('express-sslify');
 
-if (process.env.FORGE_CLIENT_ID == null || process.env.FORGE_CLIENT_SECRET == null) {
-  console.warn('*****************\nWARNING: Forge Client ID & Client Secret not defined as environment variables.\n*****************');
+if (process.env.APS_CLIENT_ID == null || process.env.APS_CLIENT_SECRET == null) {
+  console.warn('*****************\nWARNING: Client ID & Client Secret not defined as environment variables.\n*****************');
   return;
 }
 
@@ -46,7 +46,7 @@ app.use('/js', express.static(__dirname + '/../node_modules/jquery/dist')); // r
 app.use('/css', express.static(__dirname + '/../node_modules/bootstrap/dist/css')); // redirect static calls
 app.use('/fonts', express.static(__dirname + '/../node_modules/bootstrap/dist/fonts')); // redirect static calls
 app.use(session({
-  secret: 'autodeskforge',
+  secret: 'autodeskplatformservices',
   cookie: {
     httpOnly: true,
     secure: (process.env.NODE_ENV === 'production'),

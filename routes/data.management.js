@@ -14,23 +14,21 @@ var formidable = require('formidable');
 var path = require('path');
 var fs = require('fs');
 
-var config = require('./config');
-
-var forgeSDK = require('forge-apis');
+var apsSDK = require('forge-apis');
 
 function getFolderId(projectId, versionId, req) {
     return new Promise(function (_resolve, _reject) {
         // Figure out the itemId of the file we want to attach the new file to
         var tokenSession = new token(req.session);
 
-        var versions = new forgeSDK.VersionsApi();
+        var versions = new apsSDK.VersionsApi();
 
         versions.getVersion(projectId, versionId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
             .then(function (versionData) {
                 var itemId = versionData.body.data.relationships.item.data.id;
 
                 // Figure out the folderId of the file we want to attach the new file to
-                var items = new forgeSDK.ItemsApi();
+                var items = new apsSDK.ItemsApi();
                 items.getItem(projectId, itemId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                     .then(function (itemData) {
                         var folderId = itemData.body.data.relationships.parent.data.id;
@@ -54,7 +52,7 @@ function uploadFile(projectId, folderId, fileName, fileSize, fileTempPath, isCom
         // Ask for storage for the new file we want to upload
         var tokenSession = new token(req.session);
 
-        var projects = new forgeSDK.ProjectsApi();
+        var projects = new apsSDK.ProjectsApi();
         var body = storageSpecData(fileName, folderId, isComposite);
         projects.postStorage(projectId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
             .then(function (storageData) {
@@ -63,7 +61,7 @@ function uploadFile(projectId, folderId, fileName, fileSize, fileTempPath, isCom
 
                 fs.readFile(fileTempPath, function (err, fileData) {
                     // Upload the new file
-                    var objects = new forgeSDK.ObjectsApi();
+                    var objects = new apsSDK.ObjectsApi();
                     objects.uploadObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, fileSize, fileData, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                         .then(function (objectData) {
                             console.log('uploadObject: succeeded');
@@ -87,7 +85,7 @@ function createNewItemVersion(projectId, folderId, fileName, objectId, isComposi
 
         var tokenSession = new token(req.session);
 
-        var folders = new forgeSDK.FoldersApi();
+        var folders = new apsSDK.FoldersApi();
         folders.getFolderContents(projectId, folderId, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
             .then(function (folderData) {
                 var item = null;
@@ -102,7 +100,7 @@ function createNewItemVersion(projectId, folderId, fileName, objectId, isComposi
 
                 if (item) {
                     // We found it so we should create a new version
-                    var versions = new forgeSDK.VersionsApi();
+                    var versions = new apsSDK.VersionsApi();
                     var body = versionSpecData(fileName, projectId, item.id, objectId, isComposite);
                     versions.postVersion(projectId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                         .then(function (versionData) {
@@ -115,7 +113,7 @@ function createNewItemVersion(projectId, folderId, fileName, objectId, isComposi
                         });
                 } else {
                     // We did not find it so we should create it
-                    var items = new forgeSDK.ItemsApi();
+                    var items = new apsSDK.ItemsApi();
                     var body = itemSpecData(fileName, projectId, folderId, objectId, isComposite);
                     items.postItem(projectId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                         .then(function (itemData) {
@@ -141,7 +139,7 @@ function attachVersionToAnotherVersion(projectId, versionId, attachmentVersionId
         var tokenSession = new token(req.session);
 
         // Ask for storage for the new file we want to upload
-        var versions = new forgeSDK.VersionsApi();
+        var versions = new apsSDK.VersionsApi();
         var body = attachmentSpecData(attachmentVersionId, projectId);
         versions.postVersionRelationshipsRef(projectId, versionId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
             .then(function () {
@@ -163,7 +161,7 @@ router.get('/attachments', function (req, res) {
     var projectId = params[params.length - 3];
     var versionId = params[params.length - 1];
 
-    var versions = new forgeSDK.VersionsApi();
+    var versions = new apsSDK.VersionsApi();
     versions.getVersionRelationshipsRefs(projectId, versionId, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
         .then(function (relationshipsData) {
             var versionRequests = [];
@@ -216,7 +214,7 @@ router.get('/attachments/:attachment', function (req, res) {
     var params = href.split('/');
     var projectId = params[params.length - 3];
 
-    var versions = new forgeSDK.VersionsApi();
+    var versions = new apsSDK.VersionsApi();
 
     // Get version info first to find out the OSS location
     versions.getVersion(projectId, req.params.attachment, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
@@ -226,7 +224,7 @@ router.get('/attachments/:attachment', function (req, res) {
             var fileExt = versionData.body.data.attributes.fileType;
             var bucketKeyObjectName = getBucketKeyObjectName(storageId);
 
-            var objects = new forgeSDK.ObjectsApi();
+            var objects = new apsSDK.ObjectsApi();
             objects.getObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                 .then(function (data) {
                      res.set('content-type', 'application/' + fileExt);
@@ -253,7 +251,7 @@ router.delete('/attachments/:attachment', function (req, res) {
     var projectId = params[params.length - 3];
     var versionId = params[params.length - 1];
 
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
     if (!derivatives)
         return;
 
@@ -275,7 +273,7 @@ router.get('/files/:file', function (req, res) {
     var params = href.split('/');
     var projectId = params[params.length - 3];
     var versionId = params[params.length - 1];
-    var versions = new forgeSDK.VersionsApi();
+    var versions = new apsSDK.VersionsApi();
 
     // Get version info first to find out the OSS location
     versions.getVersion(projectId, versionId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
@@ -288,7 +286,7 @@ router.get('/files/:file', function (req, res) {
                 console.log('displayName = ' + displayName);
 
                 var bucketKeyObjectName = getBucketKeyObjectName(storageId);
-                var objects = new forgeSDK.ObjectsApi();
+                var objects = new apsSDK.ObjectsApi();
                 objects.getObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                     .then(function (data) {
                          //res.set('content-type', 'application/' + fileExt);
@@ -622,7 +620,7 @@ router.get('/treeNode', function (req, res) {
 
     if (href === '#') {
         // # stands for ROOT
-        var hubs = new forgeSDK.HubsApi();
+        var hubs = new apsSDK.HubsApi();
 
         try {
             hubs.getHubs({}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
@@ -642,7 +640,7 @@ router.get('/treeNode', function (req, res) {
         switch (resourceName) {
             case 'hubs':
                 // if the caller is a hub, then show projects
-                var projects = new forgeSDK.ProjectsApi();
+                var projects = new apsSDK.ProjectsApi();
 
                 projects.getHubProjects(resourceId/*hub_id*/, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                     .then(function (projects) {
@@ -656,12 +654,12 @@ router.get('/treeNode', function (req, res) {
                 // if the caller is a project, then show folders
                 var hubId = params[params.length - 3];
 
-                var projects = new forgeSDK.ProjectsApi();
+                var projects = new apsSDK.ProjectsApi();
 
                 // resourceId contains project_id
 
                 // Work with top folders instead
-                var projects = new forgeSDK.ProjectsApi();
+                var projects = new apsSDK.ProjectsApi();
                 projects.getProjectTopFolders(hubId, resourceId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                   .then(function (topFolders) {
                       res.json(makeTree(topFolders.body.data, true));
@@ -674,7 +672,7 @@ router.get('/treeNode', function (req, res) {
             case 'folders':
                 // if the caller is a folder, then show contents
                 var projectId = params[params.length - 3];
-                var folders = new forgeSDK.FoldersApi();
+                var folders = new apsSDK.FoldersApi();
                 folders.getFolderContents(projectId, resourceId/*folder_id*/, {}, 
                     tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                     .then(function (folderContents) {
@@ -687,7 +685,7 @@ router.get('/treeNode', function (req, res) {
             case 'items':
                 // if the caller is an item, then show versions
                 var projectId = params[params.length - 3];
-                var items = new forgeSDK.ItemsApi();
+                var items = new apsSDK.ItemsApi();
                 items.getItemVersions(projectId, resourceId/*item_id*/, {}, 
                     tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
                     .then(function (versions) {

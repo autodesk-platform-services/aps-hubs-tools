@@ -12,14 +12,14 @@ var jsonParser = bodyParser.json();
 
 var zlib = require("zlib");
 
-var forgeSDK = require('forge-apis');
+var apsSDK = require('forge-apis');
 
 /////////////////////////////////////////////////////////////////
 // Get the list of export file formats supported by the
 // Model Derivative API
 /////////////////////////////////////////////////////////////////
 router.get('/formats', function (req, res) {
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 
@@ -38,7 +38,7 @@ router.get('/formats', function (req, res) {
 // available for this file
 /////////////////////////////////////////////////////////////////
 router.get('/manifests/:urn', function (req, res) {
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 
@@ -54,7 +54,7 @@ router.get('/manifests/:urn', function (req, res) {
 router.delete('/manifests/:urn', function (req, res) {
     var tokenSession = new token(req.session);
 
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
     try {
         derivatives.deleteManifest(req.params.urn, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
             .then(function (data) {
@@ -74,7 +74,7 @@ router.delete('/manifests/:urn', function (req, res) {
 // the guid of the avilable models in the file
 /////////////////////////////////////////////////////////////////
 router.get('/metadatas/:urn', function (req, res) {
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 
@@ -92,7 +92,7 @@ router.get('/metadatas/:urn', function (req, res) {
 // guid inside the file with the provided urn
 /////////////////////////////////////////////////////////////////
 router.get('/hierarchy', function (req, res) {
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 
@@ -114,7 +114,7 @@ router.get('/hierarchy', function (req, res) {
 // with the given guid and file urn
 /////////////////////////////////////////////////////////////////
 router.get('/properties', function (req, res) {
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 
@@ -132,7 +132,7 @@ router.get('/properties', function (req, res) {
 // file format which are associated with the model file
 /////////////////////////////////////////////////////////////////
 router.get('/download', function (req, res) {
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 
@@ -192,7 +192,7 @@ router.post('/export', jsonParser, function (req, res) {
         "formats": [item]
     };
 
-    var derivatives = new forgeSDK.DerivativesApi();
+    var derivatives = new apsSDK.DerivativesApi();
 
     var tokenSession = new token(req.session);
 

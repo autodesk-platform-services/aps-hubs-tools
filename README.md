@@ -1,4 +1,4 @@
-# Workflow Sample for Model Derivative API
+# Hubs Tools
 
 [![Node.js](https://img.shields.io/badge/Node.js-6.2-blue.svg)](https://nodejs.org/)
 [![npm](https://img.shields.io/badge/npm-5.5.1-blue.svg)](https://www.npmjs.com/)
@@ -25,8 +25,8 @@ See it live at [https://derivatives.autodesk.io](https://derivatives.autodesk.io
 
 ## Prerequisites
 
-1. **BIM 360 or other Autodesk storage account**: if you want to use it with files from BIM 360 Docs then you must be an Account Admin to add the app integration. [Learn about provisioning](https://forge.autodesk.com/blog/bim-360-docs-provisioning-forge-apps).
-2. **Forge Account**: Learn how to create a Forge Account, activate subscription and create an app at [this tutorial](http://learnforge.autodesk.io/#/account/). 
+1. **BIM 360 or other Autodesk storage account**: if you want to use it with files from BIM 360 Docs then you must be an Account Admin to add the app integration. [Learn about provisioning](https://aps.autodesk.com/blog/bim-360-docs-provisioning-forge-apps).
+2. **APS Account**: Learn how to create a APS Account, activate subscription and create an app at [this tutorial](https://tutorials.autodesk.io/). 
 3. **Visual Studio Code**: other text editors could be used too, but Visual Studio Code is a widely used editor, see [https://code.visualstudio.com/](https://code.visualstudio.com/) 
 4. **Node.js**: basic knowledge of Node.js, see [https://nodejs.org/en/](https://nodejs.org/en/) 
 5. **JavaScript**: basic knowledge
@@ -37,22 +37,22 @@ Install [NodeJS](https://nodejs.org).
 
 Clone this project or download it. It's recommended to install [GitHub desktop](https://desktop.github.com/). To clone it via command line, use the following (<b>Terminal</b> on MacOSX/Linux, <b>Git Shell</b> on Windows):
 
-    git clone https://github.com/autodesk-forge/model.derivative-nodejs-sample
+    git clone https://github.com/autodesk-platform-services/aps-hubs-tools
 
 To run it, install the required packages, set the enviroment variables with your client ID & secret and finally start it. Via command line, navigate to the folder where this repository was cloned and use the following:
 
 Mac OSX/Linux (Terminal)
 
     npm install
-    export FORGE_CLIENT_ID=<<YOUR CLIENT ID FROM FORGE DEVELOPER PORTAL>>
-    export FORGE_CLIENT_SECRET=<<YOUR FORGE CLIENT SECRET>>
+    export APS_CLIENT_ID=<<YOUR CLIENT ID FROM DEVELOPER PORTAL>>
+    export APS_CLIENT_SECRET=<<YOUR CLIENT SECRET>>
     npm run dev
 
 Windows (use <b>Node.js command line</b> from Start menu)
 
     npm install
-    set FORGE_CLIENT_ID=<<YOUR CLIENT ID FROM FORGE DEVELOPER PORTAL>>
-    set FORGE_CLIENT_SECRET=<<YOUR FORGE CLIENT SECRET>>
+    set APS_CLIENT_ID=<<YOUR CLIENT ID FROM DEVELOPER PORTAL>>
+    set APS_CLIENT_SECRET=<<YOUR CLIENT SECRET>>
     npm run dev
 
 Open the browser: [http://localhost:3000](http://localhost:3000).
@@ -61,9 +61,9 @@ Open the browser: [http://localhost:3000](http://localhost:3000).
 
 ## Deployment
 
-To deploy this application to Heroku, the **Callback URL** for Forge must use your `.herokuapp.com` address. After clicking on the button below, at the Heroku Create New App page, set your Client ID, Secret and Callback URL for Forge.
+To deploy this application to Heroku, the **Callback URL** must use your `.herokuapp.com` address. After clicking on the button below, at the Heroku Create New App page, set your Client ID, Secret and Callback URL.
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Autodesk-Forge/model.derivative-nodejs-sample)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/autodesk-platform-services/aps-hubs-tools)
 
 Watch [this video](https://www.youtube.com/watch?v=Oqa9O20Gj0c) on how deploy samples to Heroku.
 
@@ -71,18 +71,18 @@ Watch [this video](https://www.youtube.com/watch?v=Oqa9O20Gj0c) on how deploy sa
 
 Documentation:
 
-- [BIM 360 API](https://developer.autodesk.com/en/docs/bim360/v1/overview/) and [App Provisioning](https://forge.autodesk.com/blog/bim-360-docs-provisioning-forge-apps)
+- [BIM 360 API](https://developer.autodesk.com/en/docs/bim360/v1/overview/) and [App Provisioning](https://aps.autodesk.com/blog/bim-360-docs-provisioning-forge-apps)
 - [Data Management API](https://developer.autodesk.com/en/docs/data/v2/overview/)
 - [Viewer](https://developer.autodesk.com/en/docs/viewer/v6)
 
 Tutorials:
 
-- [View BIM 360 Models](http://learnforge.autodesk.io/#/tutorials/viewhubmodels)
+- [View BIM 360/ACC Models](https://tutorials.autodesk.io/tutorials/hubs-browser/)
 - [Retrieve Issues](https://developer.autodesk.com/en/docs/bim360/v1/tutorials/retrieve-issues)
 
 Blogs:
 
-- [Forge Blog](https://forge.autodesk.com/categories/bim-360-api)
+- [APS Blog](https://aps.autodesk.com/categories/bim-360-api)
 - [Field of View](https://fieldofviewblog.wordpress.com/), a BIM focused blog
 
 ### Tips & tricks
@@ -110,5 +110,5 @@ Please see the [LICENSE](LICENSE) file for full details.
 
 ## Written by
 
-Adam Nagy (Forge Partner Development)<br />
-http://forge.autodesk.com<br />
+Adam Nagy (Autodesk Partner Development)<br />
+http://aps.autodesk.com<br />
