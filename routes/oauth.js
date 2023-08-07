@@ -72,7 +72,7 @@ router.get('/user/authenticate', function (req, res) {
   // redirect the user to this page
   var url =
     "https://developer.api.autodesk.com" +
-    '/authentication/v1/authorize?response_type=code' +
+    '/authentication/v2/authorize?response_type=code' +
     '&client_id=' + config.credentials.client_id +
     '&redirect_uri=' + config.callbackURL +
     '&state=' + req.session.csrf +
@@ -100,7 +100,7 @@ router.get('/callback/oauth', function (req, res) {
   var tokenSession = new token(req.session);
 
   // first get a full scope token for internal use (server-side)
-  var req1 = new apsSDK.AuthClientThreeLegged(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopeInternal);
+  var req1 = new apsSDK.AuthClientThreeLeggedV2(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopeInternal);
   console.log(code);
   req1.getToken(code)
     .then(function (internalCredentials) {
@@ -111,7 +111,7 @@ router.get('/callback/oauth', function (req, res) {
       console.log('Internal token (full scope): ' + internalCredentials.access_token); // debug
 
       // then refresh and get a limited scope token that we can send to the client
-      var req2 = new apsSDK.AuthClientThreeLegged(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopePublic);
+      var req2 = new apsSDK.AuthClientThreeLeggedV2(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopePublic);
       req2.refreshToken(internalCredentials, config.scopePublic)
         .then(function (publicCredentials) {
           tokenSession.setPublicCredentials(publicCredentials);
