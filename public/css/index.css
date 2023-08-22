@@ -7,6 +7,10 @@
     margin-top: 20px;
 }
 
+.w-100 {
+    width: 100%;
+} 
+
 .apsViewer {
     border:1px solid silver; padding: 0;
     height:500px; vertical-align: middle;
