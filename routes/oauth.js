@@ -34,7 +34,7 @@ var cryptiles = require('cryptiles');
 router.get('/user/logoff', function (req, res) {
   console.log('/user/logoff')
 
-  req.session.destroy();
+  req.session = null;
 
   res.end('/');
 });

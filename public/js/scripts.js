@@ -73,9 +73,13 @@ $(document).ready(function () {
 
             auth.html('You\'re logged in');
             auth.click(function () {
-                if (confirm("You're logged in and your token is " + token + '\nWould you like to log out?')) {
+              if (MyVars.token3Leg) {
+                if (confirm("You're sure you want to log out?")) {
                     logoff();
                 }
+              } else {
+                signIn();
+              }
             });
 
             // Fill the tree with A360 items
@@ -124,24 +128,26 @@ function signIn() {
 }
 
 function logoff() {
-    // Subscribe to the load event to see
-    // when the LogOut page got loaded
-    $('#hiddenFrame').load(function(event){
+  // Delete session data both locally and on the server
+  MyVars.token3Leg = null;
+  $.ajax({
+    url: '/user/logoff',
+    success: function (oauthUrl) {
+    }
+  });
 
-        // Unsubscribe from event
-        $("#hiddenFrame").off("load");
+  let loadCount = 0;
+  $('#hiddenFrame').on('load', function(data) {
+    loadCount++;
+    if (loadCount > 1) {
+      // Once the logout finished the iframe will be redirected
+      // and the load event will be fired again
+      window.location.reload();
+    }
+  })
 
-        // Tell the server to clear session data
-        $.ajax({
-            url: '/user/logoff',
-            success: function (oauthUrl) {
-                location.href = oauthUrl;
-            }
-        });
-    });
-
-    // Load the LogOut page
-    $('#hiddenFrame').attr('src', 'https://accounts.autodesk.com/Authentication/LogOut');
+   // Load the LogOut page
+   $('#hiddenFrame').attr('src', 'https://developer.api.autodesk.com/authentication/v2/logout');
 }
 
 function get3LegToken(callback) {
