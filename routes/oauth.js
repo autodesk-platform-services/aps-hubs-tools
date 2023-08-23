@@ -18,9 +18,6 @@
 
 'use strict'; // http://www.w3schools.com/js/js_strict.asp
 
-// token handling in session
-var token = require('./token');
-
 // web framework
 var express = require('express');
 var router = express.Router();
@@ -28,7 +25,7 @@ var router = express.Router();
 var apsSDK = require('forge-apis');
 
 // APS config information, such as client ID and secret
-var config = require('./config');
+var config = require('../config');
 
 var cryptiles = require('cryptiles');
 
@@ -52,11 +49,11 @@ router.get('/api/aps/clientID', function (req, res) {
 // the public token should have a limited scope (read-only)
 router.get('/user/token', function (req, res) {
   console.log('Getting user token'); // debug
-  var tokenSession = new token(req.session);
+
   // json returns empty object if the entry values are undefined
   // so let's avoid that
-  var tp = tokenSession.getPublicCredentials() ? tokenSession.getPublicCredentials().access_token : "";
-  var te = tokenSession.getPublicCredentials() ? tokenSession.getPublicCredentials().expires_in : "";
+  var tp = req.session.public?.access_token ? req.session.public.access_token : "";
+  var te = req.session.public?.expires_in ? req.session.public.expires_in : "";
   console.log('Public token:' + tp);
   res.json({token: tp, expires_in: te});
 });
@@ -97,16 +94,16 @@ router.get('/callback/oauth', function (req, res) {
     res.redirect('/');
   }
 
-  var tokenSession = new token(req.session);
-
   // first get a full scope token for internal use (server-side)
   var req1 = new apsSDK.AuthClientThreeLeggedV2(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopeInternal);
   console.log(code);
   req1.getToken(code)
     .then(function (internalCredentials) {
 
-      tokenSession.setInternalCredentials(internalCredentials);
-      tokenSession.setInternalOAuth(req1);
+      req.session.internal = {
+        access_token: internalCredentials.access_token,
+        expires_in: internalCredentials.expires_in
+      }
 
       console.log('Internal token (full scope): ' + internalCredentials.access_token); // debug
 
@@ -114,8 +111,10 @@ router.get('/callback/oauth', function (req, res) {
       var req2 = new apsSDK.AuthClientThreeLeggedV2(config.credentials.client_id, config.credentials.client_secret, config.callbackURL, config.scopePublic);
       req2.refreshToken(internalCredentials, config.scopePublic)
         .then(function (publicCredentials) {
-          tokenSession.setPublicCredentials(publicCredentials);
-          tokenSession.setPublicOAuth(req2);
+          req.session.public = {
+            access_token: publicCredentials.access_token,
+            expires_in: publicCredentials.expires_in
+          }
 
           console.log('Public token (limited scope): ' + publicCredentials.access_token); // debug
           res.redirect('/');

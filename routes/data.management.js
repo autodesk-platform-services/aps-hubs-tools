@@ -1,8 +1,5 @@
 'use strict'; // http://www.w3schools.com/js/js_strict.asp
 
-// token handling in session
-var token = require('./token');
-
 // web framework
 var express = require('express');
 var router = express.Router();
@@ -19,17 +16,16 @@ var apsSDK = require('forge-apis');
 function getFolderId(projectId, versionId, req) {
     return new Promise(function (_resolve, _reject) {
         // Figure out the itemId of the file we want to attach the new file to
-        var tokenSession = new token(req.session);
 
         var versions = new apsSDK.VersionsApi();
 
-        versions.getVersion(projectId, versionId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+        versions.getVersion(projectId, versionId, null, req.session.internal)
             .then(function (versionData) {
                 var itemId = versionData.body.data.relationships.item.data.id;
 
                 // Figure out the folderId of the file we want to attach the new file to
                 var items = new apsSDK.ItemsApi();
-                items.getItem(projectId, itemId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                items.getItem(projectId, itemId, null, req.session.internal)
                     .then(function (itemData) {
                         var folderId = itemData.body.data.relationships.parent.data.id;
 
@@ -50,11 +46,10 @@ function getFolderId(projectId, versionId, req) {
 function uploadFile(projectId, folderId, fileName, fileSize, fileTempPath, isComposite, req) {
     return new Promise(function (_resolve, _reject) {
         // Ask for storage for the new file we want to upload
-        var tokenSession = new token(req.session);
 
         var projects = new apsSDK.ProjectsApi();
         var body = storageSpecData(fileName, folderId, isComposite);
-        projects.postStorage(projectId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+        projects.postStorage(projectId, body, null, req.session.internal)
             .then(function (storageData) {
                 var objectId = storageData.body.data.id;
                 var bucketKeyObjectName = getBucketKeyObjectName(objectId);
@@ -62,7 +57,7 @@ function uploadFile(projectId, folderId, fileName, fileSize, fileTempPath, isCom
                 fs.readFile(fileTempPath, function (err, fileData) {
                     // Upload the new file
                     var objects = new apsSDK.ObjectsApi();
-                    objects.uploadObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, fileSize, fileData, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                    objects.uploadObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, fileSize, fileData, {}, null, req.session.internal)
                         .then(function (objectData) {
                             console.log('uploadObject: succeeded');
                             _resolve(objectData.body.objectId);
@@ -83,10 +78,8 @@ function uploadFile(projectId, folderId, fileName, fileSize, fileTempPath, isCom
 function createNewItemVersion(projectId, folderId, fileName, objectId, isComposite, req) {
     return new Promise(function (_resolve, _reject) {
 
-        var tokenSession = new token(req.session);
-
         var folders = new apsSDK.FoldersApi();
-        folders.getFolderContents(projectId, folderId, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+        folders.getFolderContents(projectId, folderId, {}, null, req.session.internal)
             .then(function (folderData) {
                 var item = null;
                 for (var key in folderData.body.data) {
@@ -102,7 +95,7 @@ function createNewItemVersion(projectId, folderId, fileName, objectId, isComposi
                     // We found it so we should create a new version
                     var versions = new apsSDK.VersionsApi();
                     var body = versionSpecData(fileName, projectId, item.id, objectId, isComposite);
-                    versions.postVersion(projectId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                    versions.postVersion(projectId, body, null, req.session.internal)
                         .then(function (versionData) {
                             _resolve(versionData.body.data.id);
                         })
@@ -115,7 +108,7 @@ function createNewItemVersion(projectId, folderId, fileName, objectId, isComposi
                     // We did not find it so we should create it
                     var items = new apsSDK.ItemsApi();
                     var body = itemSpecData(fileName, projectId, folderId, objectId, isComposite);
-                    items.postItem(projectId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                    items.postItem(projectId, body, null, req.session.internal)
                         .then(function (itemData) {
                             // Get the versionId out of the reply
                             _resolve(itemData.body.included[0].id);
@@ -136,12 +129,11 @@ function createNewItemVersion(projectId, folderId, fileName, objectId, isComposi
 
 function attachVersionToAnotherVersion(projectId, versionId, attachmentVersionId, req) {
     return new Promise(function (_resolve, _reject) {
-        var tokenSession = new token(req.session);
 
         // Ask for storage for the new file we want to upload
         var versions = new apsSDK.VersionsApi();
         var body = attachmentSpecData(attachmentVersionId, projectId);
-        versions.postVersionRelationshipsRef(projectId, versionId, body, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+        versions.postVersionRelationshipsRef(projectId, versionId, body, null, req.session.internal)
             .then(function () {
                 _resolve();
             })
@@ -154,15 +146,13 @@ function attachVersionToAnotherVersion(projectId, versionId, attachmentVersionId
 
 router.get('/attachments', function (req, res) {
 
-    var tokenSession = new token(req.session);
-
     var href = decodeURIComponent(req.query.href);
     var params = href.split('/');
     var projectId = params[params.length - 3];
     var versionId = params[params.length - 1];
 
     var versions = new apsSDK.VersionsApi();
-    versions.getVersionRelationshipsRefs(projectId, versionId, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    versions.getVersionRelationshipsRefs(projectId, versionId, {}, null, req.session.internal)
         .then(function (relationshipsData) {
             var versionRequests = [];
             for (var key in relationshipsData.body.data) {
@@ -170,7 +160,7 @@ router.get('/attachments', function (req, res) {
                 if (item.meta.extension.type === "auxiliary:autodesk.core:Attachment") {
                     (function (relationshipItem) {
                         var versionRequest = new Promise(function (_resolve, _reject) {
-                            versions.getVersion(projectId, relationshipItem.id, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                            versions.getVersion(projectId, relationshipItem.id, null, req.session.internal)
                                 .then(function (versionData) {
                                     relationshipItem.displayName =
                                         versionData.body.data.attributes.displayName +
@@ -205,8 +195,6 @@ router.get('/attachments', function (req, res) {
 // Download a specific attachment of an item version
 router.get('/attachments/:attachment', function (req, res) {
 
-    var tokenSession = new token(req.session);
-
     // From the href of the item version that has the attachment
     // we only need the projectId
     // req.params.attachment contains the versionId of the attachment
@@ -217,7 +205,7 @@ router.get('/attachments/:attachment', function (req, res) {
     var versions = new apsSDK.VersionsApi();
 
     // Get version info first to find out the OSS location
-    versions.getVersion(projectId, req.params.attachment, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    versions.getVersion(projectId, req.params.attachment, null, req.session.internal)
         .then(function (versionData) {
             var storageId = versionData.body.data.relationships.storage.data.id;
             var storageHref = versionData.body.data.relationships.storage.meta.link.href;
@@ -225,7 +213,7 @@ router.get('/attachments/:attachment', function (req, res) {
             var bucketKeyObjectName = getBucketKeyObjectName(storageId);
 
             var objects = new apsSDK.ObjectsApi();
-            objects.getObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+            objects.getObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, {}, null, req.session.internal)
                 .then(function (data) {
                      res.set('content-type', 'application/' + fileExt);
                      res.set('Content-Disposition', 'attachment; filename="' + versionData.body.data.attributes.displayName + '"');
@@ -244,7 +232,6 @@ router.get('/attachments/:attachment', function (req, res) {
 
 // Delete the specific attachment relationship between two item versions
 router.delete('/attachments/:attachment', function (req, res) {
-    var tokenSession = new token(req.session);
 
     var href = decodeURIComponent(req.header('wip-href'));
     var params = href.split('/');
@@ -255,7 +242,7 @@ router.delete('/attachments/:attachment', function (req, res) {
     if (!derivatives)
         return;
 
-    derivatives.deleteManifest(req.params.attachment, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.deleteManifest(req.params.attachment, null, req.session.internal)
         .then(function (data) {
             res.json(data.body);
         })
@@ -266,7 +253,6 @@ router.delete('/attachments/:attachment', function (req, res) {
 
 // Download a specific attachment of an item version
 router.get('/files/:file', function (req, res) {
-    var tokenSession = new token(req.session);
 
     var href = decodeURIComponent(req.params.file);
 
@@ -276,7 +262,7 @@ router.get('/files/:file', function (req, res) {
     var versions = new apsSDK.VersionsApi();
 
     // Get version info first to find out the OSS location
-    versions.getVersion(projectId, versionId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    versions.getVersion(projectId, versionId, null, req.session.internal)
         .then(function (versionData) {
             try {
                 var storageId = versionData.body.data.relationships.storage.data.id;
@@ -287,7 +273,7 @@ router.get('/files/:file', function (req, res) {
 
                 var bucketKeyObjectName = getBucketKeyObjectName(storageId);
                 var objects = new apsSDK.ObjectsApi();
-                objects.getObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                objects.getObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, {}, null, req.session.internal)
                     .then(function (data) {
                          //res.set('content-type', 'application/' + fileExt);
                          res.set('Content-Disposition', 'attachment; filename="' + displayName + '"');
@@ -616,14 +602,12 @@ router.get('/treeNode', function (req, res) {
     var href = decodeURIComponent(req.query.href);
     console.log("treeNode for " + href);
 
-    var tokenSession = new token(req.session);
-
     if (href === '#') {
         // # stands for ROOT
         var hubs = new apsSDK.HubsApi();
 
         try {
-            hubs.getHubs({}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+            hubs.getHubs({}, null, req.session.internal)
             .then(function (data) {
                 res.json(makeTree(data.body.data, true));
             })
@@ -642,7 +626,7 @@ router.get('/treeNode', function (req, res) {
                 // if the caller is a hub, then show projects
                 var projects = new apsSDK.ProjectsApi();
 
-                projects.getHubProjects(resourceId/*hub_id*/, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                projects.getHubProjects(resourceId/*hub_id*/, {}, null, req.session.internal)
                     .then(function (projects) {
                         res.json(makeTree(projects.body.data, true));
                     })
@@ -660,7 +644,7 @@ router.get('/treeNode', function (req, res) {
 
                 // Work with top folders instead
                 var projects = new apsSDK.ProjectsApi();
-                projects.getProjectTopFolders(hubId, resourceId, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                projects.getProjectTopFolders(hubId, resourceId, null, req.session.internal)
                   .then(function (topFolders) {
                       res.json(makeTree(topFolders.body.data, true));
                   })
@@ -674,7 +658,7 @@ router.get('/treeNode', function (req, res) {
                 var projectId = params[params.length - 3];
                 var folders = new apsSDK.FoldersApi();
                 folders.getFolderContents(projectId, resourceId/*folder_id*/, {}, 
-                    tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                    null, req.session.internal)
                     .then(function (folderContents) {
                         res.json(makeTree(folderContents.body.data, true));
                     })
@@ -687,7 +671,7 @@ router.get('/treeNode', function (req, res) {
                 var projectId = params[params.length - 3];
                 var items = new apsSDK.ItemsApi();
                 items.getItemVersions(projectId, resourceId/*item_id*/, {}, 
-                    tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+                    null, req.session.internal)
                     .then(function (versions) {
                         res.json(makeTree(versions.body.data, false));
                     })

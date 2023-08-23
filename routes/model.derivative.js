@@ -1,8 +1,5 @@
 'use strict'; // http://www.w3schools.com/js/js_strict.asp
 
-// token handling in session
-var token = require('./token');
-
 // web framework
 var express = require('express');
 var router = express.Router();
@@ -21,9 +18,7 @@ var apsSDK = require('forge-apis');
 router.get('/formats', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
-    derivatives.getFormats({}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.getFormats({}, null, req.session.internal)
         .then(function (formats) {
             res.json(formats.body);
         })
@@ -40,9 +35,7 @@ router.get('/formats', function (req, res) {
 router.get('/manifests/:urn', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
-    derivatives.getManifest(req.params.urn, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.getManifest(req.params.urn, {}, null, req.session.internal)
         .then(function (data) {
             res.json(data.body);
         })
@@ -52,11 +45,9 @@ router.get('/manifests/:urn', function (req, res) {
 });
 
 router.delete('/manifests/:urn', function (req, res) {
-    var tokenSession = new token(req.session);
-
     var derivatives = new apsSDK.DerivativesApi();
     try {
-        derivatives.deleteManifest(req.params.urn, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+        derivatives.deleteManifest(req.params.urn, null, req.session.internal)
             .then(function (data) {
                 res.json(data.body);
             })
@@ -76,9 +67,7 @@ router.delete('/manifests/:urn', function (req, res) {
 router.get('/metadatas/:urn', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
-    derivatives.getMetadata(req.params.urn, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.getMetadata(req.params.urn, {}, null, req.session.internal)
         .then(function (data) {
             res.json(data.body);
         })
@@ -94,9 +83,7 @@ router.get('/metadatas/:urn', function (req, res) {
 router.get('/hierarchy', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
-    derivatives.getModelviewMetadata(req.query.urn, req.query.guid, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.getModelviewMetadata(req.query.urn, req.query.guid, {}, null, req.session.internal)
         .then(function (metaData) {
             if (metaData.body.data) {
                 res.json(metaData.body);
@@ -116,9 +103,7 @@ router.get('/hierarchy', function (req, res) {
 router.get('/properties', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
-    derivatives.getModelviewProperties(req.query.urn, req.query.guid, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.getModelviewProperties(req.query.urn, req.query.guid, {}, null, req.session.internal)
         .then(function (data) {
             res.json(data.body);
         })
@@ -134,9 +119,7 @@ router.get('/properties', function (req, res) {
 router.get('/download', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
-    derivatives.getDerivativeManifest(req.query.urn, req.query.derUrn, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.getDerivativeManifest(req.query.urn, req.query.derUrn, {}, null, req.session.internal)
         .then(function (data) {
             var fileExt = req.query.fileName.split('.')[1];
             res.set('content-type', 'application/octet-stream');
@@ -194,14 +177,12 @@ router.post('/export', jsonParser, function (req, res) {
 
     var derivatives = new apsSDK.DerivativesApi();
 
-    var tokenSession = new token(req.session);
-
     if (!derivatives)
         return;
 
     console.log("input", input);    
 
-    derivatives.translate({"input": input, "output": output}, {}, tokenSession.getInternalOAuth(), tokenSession.getInternalCredentials())
+    derivatives.translate({"input": input, "output": output}, {}, null, req.session.internal)
         .then(function (data) {
             res.json(data.body);
         })
