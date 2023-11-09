@@ -1,10 +1,10 @@
 var MyVars = {
-    keepTrying: true
+    keepTrying: true,
 };
 
 $(document).ready(function () {
     //debugger;
-    $('#hiddenFrame').attr('src', '');
+    $("#hiddenFrame").attr("src", "");
 
     // Make sure that "change" event is fired
     // even if same file is selected for upload
@@ -13,73 +13,43 @@ $(document).ready(function () {
     });
 
     $("#refreshTree").click(function (evt) {
-        $("#apsFiles").jstree(true).refresh()
+        $("#apsFiles").jstree(true).refresh();
     });
 
-    $("#apsUploadHidden").change(function(evt) {
-
-        showProgress("Uploading file... ", "inprogress");
-        var data = new FormData () ;
-        var fileName = this.value;
-        data.append (0, this.files[0]) ;
-        $.ajax ({
-            url: '/dm/files',
-            type: 'POST',
-            headers: { 
-                'x-file-name': fileName, 
-                'wip-href': MyVars.selectedNode.original.href, 
-                'wip-id': MyVars.selectedNode.original.wipid,  
-                'is-attachment': MyVars.isAttachment 
-            },
-            data: data,
-            cache: false,
-            processData: false, // Don't process the files
-            contentType: false, // Set content type to false as jQuery will tell the server its a query string request
-            complete: null
-        }).done (function (data) {
-            console.log('Uploaded file "' + data.fileName + '" with urn = ' + data.objectId);
-
-            // Refresh file tree
-            $('#apsFiles').jstree("refresh");
-
-            showProgress("Upload successful", "success");
-        }).fail (function (xhr, ajaxOptions, thrownError) {
-            alert(fileName + ' upload failed!') ;
-            showProgress("Upload failed", "failed");
-        }) ;
+    $("#apsUploadHidden").change(function (evt) {
+        uploadFile(this.value, this.files[0]);
     });
 
-    $("#uploadFile").click(function(evt) {
+    $("#uploadFile").click(function (evt) {
         evt.preventDefault();
         MyVars.isAttachment = true;
         $("#apsUploadHidden").trigger("click");
     });
 
-    $("#uploadFile2").click(function(evt) {
+    $("#uploadFile2").click(function (evt) {
         evt.preventDefault();
         MyVars.isAttachment = false;
         $("#apsUploadHidden").trigger("click");
     });
 
-
     // Get the tokens
-    get3LegToken(function(token) {
+    getToken(function (token) {
         var auth = $("#authenticate");
 
         if (!token) {
             auth.click(signIn);
         } else {
-            MyVars.token3Leg = token;
+            MyVars.token = token;
 
-            auth.html('You\'re logged in');
+            auth.html("You're logged in");
             auth.click(function () {
-              if (MyVars.token3Leg) {
-                if (confirm("You're sure you want to log out?")) {
-                    logoff();
+                if (MyVars.token) {
+                    if (confirm("You're sure you want to log out?")) {
+                        signOut();
+                    }
+                } else {
+                    signIn();
                 }
-              } else {
-                signIn();
-              }
             });
 
             // Fill the tree with A360 items
@@ -90,11 +60,49 @@ $(document).ready(function () {
         }
     });
 
-    $('#progressInfo').click(function() {
+    $("#progressInfo").click(function () {
         MyVars.keepTrying = false;
-        showProgress("Translation stopped", 'failed');
+        showProgress("Translation stopped", "failed");
     });
 });
+
+function uploadFile(fileName, file) {
+    showProgress("Uploading file... ", "inprogress");
+    let data = new FormData();
+    data.append(0, file);
+    $.ajax({
+        url: "/dm/files",
+        type: "POST",
+        headers: {
+            "x-file-name": fileName,
+            "wip-href": MyVars.selectedNode.original.href,
+            "wip-id": MyVars.selectedNode.original.wipid,
+            "is-attachment": MyVars.isAttachment,
+        },
+        data: data,
+        cache: false,
+        processData: false, // Don't process the files
+        contentType: false, // Set content type to false as jQuery will tell the server its a query string request
+        complete: null,
+    })
+        .done(function (data) {
+            console.log(
+                'Uploaded file "' +
+                    data.fileName +
+                    '" with urn = ' +
+                    data.objectId
+            );
+
+            // Refresh file tree
+            $("#apsFiles").jstree("refresh");
+
+            showProgress("Upload successful", "success");
+        })
+        .fail(function (xhr, ajaxOptions, thrownError) {
+            alert(fileName + " upload failed!");
+            showProgress("Upload failed", "failed");
+        });
+}
 
 function base64encode(str) {
     var ret = "";
@@ -111,134 +119,140 @@ function base64encode(str) {
     // Have a look at this page for info on "Unpadded 'base64url' for "named information" URI's (RFC 6920)"
     // which is the format being used by the Model Derivative API
     // https://en.wikipedia.org/wiki/Base64#Variants_summary_table
-    var ret2 = ret.replace(/=/g, '').replace(/[/]/g, '_').replace(/[+]/g, '-');
+    var ret2 = ret.replace(/=/g, "").replace(/[/]/g, "_").replace(/[+]/g, "-");
 
-    console.log('base64encode result = ' + ret2);
+    console.log("base64encode result = " + ret2);
 
     return ret2;
 }
 
 function signIn() {
     $.ajax({
-        url: '/user/authenticate',
+        url: "/user/authenticate",
         success: function (rootUrl) {
             location.href = rootUrl;
-        }
+        },
     });
 }
 
-function logoff() {
-  // Delete session data both locally and on the server
-  MyVars.token3Leg = null;
-  $.ajax({
-    url: '/user/logoff',
-    success: function (oauthUrl) {
-    }
-  });
+function signOut() {
+    // Delete session data both locally and on the server
+    MyVars.token = null;
+    $.ajax({
+        url: "/user/signOut",
+        success: function (oauthUrl) {},
+    });
 
-  let loadCount = 0;
-  $('#hiddenFrame').on('load', function(data) {
-    loadCount++;
-    if (loadCount > 1) {
-      // Once the logout finished the iframe will be redirected
-      // and the load event will be fired again
-      window.location.reload();
-    }
-  })
+    let loadCount = 0;
+    $("#hiddenFrame").on("load", function (data) {
+        loadCount++;
+        if (loadCount > 1) {
+            // Once the logout finished the iframe will be redirected
+            // and the load event will be fired again
+            window.location.reload();
+        }
+    });
 
-   // Load the LogOut page
-   $('#hiddenFrame').attr('src', 'https://developer.api.autodesk.com/authentication/v2/logout');
+    // Load the LogOut page
+    $("#hiddenFrame").attr(
+        "src",
+        "https://developer.api.autodesk.com/authentication/v2/logout"
+    );
 }
 
-function get3LegToken(callback) {
-
+function getToken(callback) {
     if (callback) {
         $.ajax({
-            url: '/user/token',
+            url: "/user/token",
             success: function (data) {
-                MyVars.token3Leg = data.token;
-                console.log('Returning new 3 legged token (User Authorization): ' + MyVars.token3Leg);
+                MyVars.token = data.token;
+                console.log(
+                    "Returning new 3 legged token (User Authorization): " +
+                        MyVars.token
+                );
                 callback(data.token, data.expires_in);
-            }
+            },
         });
     } else {
-        console.log('Returning saved 3 legged token (User Authorization): ' + MyVars.token3Leg);
+        console.log(
+            "Returning saved 3 legged token (User Authorization): " +
+                MyVars.token
+        );
 
-        return MyVars.token3Leg;
-    }
-}
-
-// http://stackoverflow.com/questions/4068373/center-a-popup-window-on-screen
-function PopupCenter(url, title, w, h) {
-    // Fixes dual-screen position                         Most browsers      Firefox
-    var dualScreenLeft = window.screenLeft != undefined ? window.screenLeft : screen.left;
-    var dualScreenTop = window.screenTop != undefined ? window.screenTop : screen.top;
-
-    var width = window.innerWidth ? window.innerWidth : document.documentElement.clientWidth ? document.documentElement.clientWidth : screen.width;
-    var height = window.innerHeight ? window.innerHeight : document.documentElement.clientHeight ? document.documentElement.clientHeight : screen.height;
-
-    var left = ((width / 2) - (w / 2)) + dualScreenLeft;
-    var top = ((height / 2) - (h / 2)) + dualScreenTop;
-    var newWindow = window.open(url, title, 'scrollbars=yes, width=' + w + ', height=' + h + ', top=' + top + ', left=' + left);
-
-    // Puts focus on the newWindow
-    if (window.focus) {
-        newWindow.focus();
+        return MyVars.token;
     }
 }
 
 function downloadDerivative(urn, derUrn, fileName) {
     console.log("downloadDerivative for urn=" + urn + " and derUrn=" + derUrn);
     // fileName = file name you want to use for download
-    var url = window.location.protocol + "//" + window.location.host +
-        "/md/download?urn=" + urn +
-        "&derUrn=" + derUrn +
-        "&fileName=" + encodeURIComponent(fileName);
+    var url =
+        window.location.protocol +
+        "//" +
+        window.location.host +
+        "/md/download?urn=" +
+        urn +
+        "&derUrn=" +
+        derUrn +
+        "&fileName=" +
+        encodeURIComponent(fileName);
 
-    window.open(url,'_blank');
+    window.open(url, "_blank");
 }
 
-function getThumbnail(urn) {
+function downloadThumbnail(urn) {
     console.log("downloadDerivative for urn=" + urn);
     // fileName = file name you want to use for download
-    var url = window.location.protocol + "//" + window.location.host +
-        "/dm/thumbnail?urn=" + urn;
+    var url =
+        window.location.protocol +
+        "//" +
+        window.location.host +
+        "/dm/thumbnail?urn=" +
+        urn;
 
-    window.open(url,'_blank');
+    window.open(url, "_blank");
 }
 
 function isArraySame(arr1, arr2) {
     // If both are undefined or has no value
-    if (!arr1 && !arr2)
-        return true;
+    if (!arr1 && !arr2) return true;
 
     // If just one of them has no value
-    if (!arr1 || !arr2)
-        return false;
+    if (!arr1 || !arr2) return false;
 
-    return (arr1.sort().join(',') === arr2.sort().join(','));
+    return arr1.sort().join(",") === arr2.sort().join(",");
 }
 
-function getDerivativeUrns(derivative, format, getThumbnail, objectIds) {
+function getDerivativeUrns(
+    derivative,
+    format,
+    isThumbnailRequested,
+    objectIds
+) {
     console.log(
-        "getDerivativeUrns for derivative=" + derivative.outputType +
-        " and objectIds=" + (objectIds ? objectIds.toString() : "none"));
+        "getDerivativeUrns for derivative=" +
+            derivative.outputType +
+            " and objectIds=" +
+            (objectIds ? objectIds.toString() : "none")
+    );
     var res = [];
     for (var childId in derivative.children) {
         var child = derivative.children[childId];
         // using toLowerCase to handle inconsistency
-        if (child.role === '3d' || child.role.toLowerCase() === format) {
+        if (child.role === "3d" || child.role.toLowerCase() === format) {
             if (isArraySame(child.objectIds, objectIds)) {
                 // Some formats like svf might have children
                 if (child.children) {
                     for (var subChildId in child.children) {
                         var subChild = child.children[subChildId];
 
-                        if (subChild.role === 'graphics') {
+                        if (subChild.role === "graphics") {
                             res.push(subChild.urn);
-                            if (!getThumbnail)
-                                return res;
-                        } else if (getThumbnail && subChild.role === 'thumbnail') {
+                            if (!isThumbnailRequested) return res;
+                        } else if (
+                            isThumbnailRequested &&
+                            subChild.role === "thumbnail"
+                        ) {
                             res.push(subChild.urn);
                             return res;
                         }
@@ -258,182 +272,200 @@ function getDerivativeUrns(derivative, format, getThumbnail, objectIds) {
 // SVF, STEP, STL, IGES:
 // Posts the job then waits for the manifest and then download the file
 // if it's created
-function askForFileType(format, urn, guid, objectIds, rootFileName, fileExtType, onsuccess) {
+function askForFileType(
+    format,
+    urn,
+    guid,
+    objectIds,
+    rootFileName,
+    fileExtType,
+    onsuccess
+) {
     console.log("askForFileType " + format + " for urn=" + urn);
+
     var advancedOptions = {
-        'stl' : {
-            "format": "binary",
-            "exportColor": true,
-            "exportFileStructure": "single" // "multiple" does not work
+        stl: {
+            format: "binary",
+            exportColor: true,
+            exportFileStructure: "single", // "multiple" does not work
         },
-        'obj' : {
-            "modelGuid": guid,
-            "objectIds": objectIds
-        }
+        obj: {
+            modelGuid: guid,
+            objectIds: objectIds,
+        },
     };
 
     $.ajax({
-        url: '/md/export',
-        type: 'POST',
-        contentType: 'application/json',
-        dataType: 'json',
-        data: JSON.stringify(
-            {
-                urn: urn,
-                format: format,
-                advanced: advancedOptions[format],
-                rootFileName: rootFileName,
-                fileExtType: fileExtType
-            }
-        )
-    }).done(function (data) {
-        console.log(data);
+        url: "/md/export",
+        type: "POST",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            urn: urn,
+            format: format,
+            advanced: advancedOptions[format],
+            rootFileName: rootFileName,
+            fileExtType: fileExtType,
+        }),
+    })
+        .done(function (data) {
+            console.log(data);
 
-        if (data.result === 'success' // newly submitted data
-            || data.result === 'created') { // already submitted data
-            getManifest(urn, function (res) {
-                onsuccess(res);
-            });
-        }
-    }).fail(function(err) {
-        showProgress("Could not start translation", "fail");
-        console.log('/md/export call failed\n' + err.statusText);
-    });
+            if (
+                data.result === "success" || // newly submitted data
+                data.result === "created" // already submitted data
+            ) {
+                getManifest(urn, function (res) {
+                    onsuccess(res);
+                });
+            }
+        })
+        .fail(function (err) {
+            showProgress("Could not start translation", "fail");
+            console.log("/md/export call failed\n" + err.statusText);
+        });
 }
 
 // We need this in order to get an OBJ file for the model
 function getMetadata(urn, onsuccess) {
     console.log("getMetadata for urn=" + urn);
     $.ajax({
-        url: '/md/metadatas/' + urn,
-        type: 'GET'
-    }).done(function (data) {
-        console.log(data);
+        url: "/md/metadatas/" + urn,
+        type: "GET",
+    })
+        .done(function (data) {
+            console.log(data);
 
-        // Get first model guid
-        // If it does not exists then something is wrong
-        // let's check the manifest
-        // If get manifest sees a failed attempt then it will
-        // delete the manifest
-        var md0 = data.data.metadata[0];
-        if (!md0) {
-            getManifest(urn, function () {});
-        } else {
-            var guid = md0.guid;
-            if (onsuccess !== undefined) {
-                onsuccess(guid);
+            // Get first model guid
+            // If it does not exists then something is wrong
+            // let's check the manifest
+            // If get manifest sees a failed attempt then it will
+            // delete the manifest
+            var md0 = data.data.metadata[0];
+            if (!md0) {
+                getManifest(urn, function () {});
+            } else {
+                var guid = md0.guid;
+                if (onsuccess !== undefined) {
+                    onsuccess(guid);
+                }
             }
-        }
-    }).fail(function(err) {
-        console.log('GET /md/metadata call failed\n' + err.statusText);
-    });
+        })
+        .fail(function (err) {
+            console.log("GET /md/metadata call failed\n" + err.statusText);
+        });
 }
 
 function getHierarchy(urn, guid, onsuccess) {
     console.log("getHierarchy for urn=" + urn + " and guid=" + guid);
     $.ajax({
-        url: '/md/hierarchy',
-        type: 'GET',
-        data: {urn: urn, guid: guid}
-    }).done(function (data) {
-        console.log(data);
+        url: "/md/hierarchy",
+        type: "GET",
+        data: { urn: urn, guid: guid },
+    })
+        .done(function (data) {
+            console.log(data);
 
-        // If it's 'accepted' then it's not ready yet
-        if (data.result === 'accepted') {
-            // Let's try again
-            if (MyVars.keepTrying) {
-                window.setTimeout(function() {
+            // If it's 'accepted' then it's not ready yet
+            if (data.result === "accepted") {
+                // Let's try again
+                if (MyVars.keepTrying) {
+                    window.setTimeout(function () {
                         getHierarchy(urn, guid, onsuccess);
-                    }, 500
-                );
-            } else {
-                MyVars.keepTrying = true;
+                    }, 500);
+                } else {
+                    MyVars.keepTrying = true;
+                }
+
+                return;
             }
 
-            return;
-        }
-
-        // We got what we want
-        if (onsuccess !== undefined) {
-            onsuccess(data);
-        }
-    }).fail(function(err) {
-        console.log('GET /md/hierarchy call failed\n' + err.statusText);
-    });
+            // We got what we want
+            if (onsuccess !== undefined) {
+                onsuccess(data);
+            }
+        })
+        .fail(function (err) {
+            console.log("GET /md/hierarchy call failed\n" + err.statusText);
+        });
 }
 
 function getProperties(urn, guid, onsuccess) {
     console.log("getProperties for urn=" + urn + " and guid=" + guid);
     $.ajax({
-        url: '/md/properties',
-        type: 'GET',
-        data: {urn: urn, guid: guid}
-    }).done(function (data) {
-        console.log(data);
+        url: "/md/properties",
+        type: "GET",
+        data: { urn: urn, guid: guid },
+    })
+        .done(function (data) {
+            console.log(data);
 
-        if (onsuccess !== undefined) {
-            onsuccess(data);
-        }
-    }).fail(function(err) {
-        console.log('GET /api/properties call failed\n' + err.statusText);
-    });
+            if (onsuccess !== undefined) {
+                onsuccess(data);
+            }
+        })
+        .fail(function (err) {
+            console.log("GET /api/properties call failed\n" + err.statusText);
+        });
 }
 
 function getManifest(urn, onsuccess) {
     console.log("getManifest for urn=" + urn);
     $.ajax({
-        url: '/md/manifests/' + urn,
-        type: 'GET'
-    }).done(function (data) {
-        console.log(data);
+        url: "/md/manifests/" + urn,
+        type: "GET",
+    })
+        .done(function (data) {
+            console.log(data);
 
-        if (data.status !== 'failed') {
-            if (data.progress !== 'complete') {
-                showProgress("Translation progress: " + data.progress, data.status);
+            if (data.status === "failed") {
+                showProgress("Translation failed", data.status);
+                return;
+            }
 
-                if (MyVars.keepTrying) {
-                    // Keep calling until it's done
-                    window.setTimeout(function() {
-                            getManifest(urn, onsuccess);
-                        }, 500
-                    );
-                } else {
-                    MyVars.keepTrying = true;
-                }
-            } else {
+            if (data.progress === "complete") {
                 showProgress("Translation completed", data.status);
                 onsuccess(data);
+                return;
             }
-        // if it's a failed translation best thing is to delete it
-        } else {
-            showProgress("Translation failed", data.status);
-            // Should we do automatic manifest deletion in case of a failed one?
-            //delManifest(urn, function () {});
-        }
-    }).fail(function(err) {
-        showProgress("Translation failed", 'failed');
-        console.log('GET /api/manifest call failed\n' + err.statusText);
-    });
+
+            showProgress("Translation progress: " + data.progress, data.status);
+
+            if (MyVars.keepTrying) {
+                // Keep calling until it's done
+                window.setTimeout(function () {
+                    getManifest(urn, onsuccess);
+                }, 500);
+            } else {
+                MyVars.keepTrying = true;
+            }
+        })
+        .fail(function (err) {
+            showProgress("Translation failed", "failed");
+            console.log("GET /api/manifest call failed\n" + err.statusText);
+        });
 }
 
 function delManifest(urn, onsuccess, onerror) {
     console.log("delManifest for urn=" + urn);
     $.ajax({
-        url: '/md/manifests/' + urn,
-        type: 'DELETE'
-    }).done(function (data) {
-        console.log(data);
-        if (data.result === 'success') {
-            if (onsuccess !== undefined) {
-                onsuccess(data);
+        url: "/md/manifests/" + urn,
+        type: "DELETE",
+    })
+        .done(function (data) {
+            console.log(data);
+            if (data.result === "success") {
+                if (onsuccess !== undefined) {
+                    onsuccess(data);
+                }
             }
-        }
-    }).fail(function(err) {
-        console.log('DELETE /api/manifest call failed\n' + err.statusText);
-        if (onerror !== undefined) {
-            onerror(err)
-        }
-    });
+        })
+        .fail(function (err) {
+            console.log("DELETE /api/manifest call failed\n" + err.statusText);
+            if (onerror !== undefined) {
+                onerror(err);
+            }
+        });
 }
 
 /////////////////////////////////////////////////////////////////
@@ -444,31 +476,33 @@ function delManifest(urn, onsuccess, onerror) {
 function getFormats(onsuccess) {
     console.log("getFormats");
     $.ajax({
-        url: '/md/formats',
-        type: 'GET'
-    }).done(function (data) {
-        console.log(data);
+        url: "/md/formats",
+        type: "GET",
+    })
+        .done(function (data) {
+            console.log(data);
 
-        if (onsuccess !== undefined) {
-            onsuccess(data);
-        }
-    }).fail(function(err) {
-        console.log('GET /md/formats call failed\n' + err.statusText);
-    });
+            if (onsuccess !== undefined) {
+                onsuccess(data);
+            }
+        })
+        .fail(function (err) {
+            console.log("GET /md/formats call failed\n" + err.statusText);
+        });
 }
 
 function fillFormats() {
-    getFormats(function(data) {
+    getFormats(function (data) {
         var apsFormats = $("#apsFormats");
         apsFormats.data("apsFormats", data);
 
         var download = $("#downloadExport");
-        download.click(function() {
+        download.click(function () {
             MyVars.keepTrying = true;
 
             var elem = $("#apsHierarchy");
             var tree = elem.jstree();
-            var rootNodeId = tree.get_node('#').children[0];
+            var rootNodeId = tree.get_node("#").children[0];
             var rootNode = tree.get_node(rootNodeId);
 
             var format = $("#apsFormats").val();
@@ -481,7 +515,7 @@ function fillFormats() {
             // Only OBJ supports subcomponent selection
             // using objectId's
             var objectIds = null;
-            if (format === 'obj') {
+            if (format === "obj") {
                 objectIds = [-1];
                 if (nodeIds.length) {
                     objectIds = [];
@@ -493,70 +527,101 @@ function fillFormats() {
             }
 
             // The rest can be exported with a single function
-            askForFileType(format, urn, guid, objectIds, rootFileName, MyVars.fileExtType, function (res) {
-                if (format === 'thumbnail') {
-                    getThumbnail(urn);
-
-                    return;
-                }
-
-                // Find the appropriate obj part
-                for (var derId in res.derivatives) {
-                    var der = res.derivatives[derId];
-                    if (der.outputType === format) {
-                        // found it, now get derivative urn
-                        // leave objectIds parameter undefined
-                        var derUrns = getDerivativeUrns(der, format, false, objectIds);
-
-                        // url encode it
-                        if (derUrns) {
-                            derUrns[0] = encodeURIComponent(derUrns[0]);
-
-                            downloadDerivative(urn, derUrns[0], fileName);
-
-                            // in case of obj format, also try to download the material
-                            if (format === 'obj') {
-                                // The MTL file needs to have the exact name that it has on OSS
-                                // because that's how it's referenced from the OBJ file
-                                var ossName = decodeURIComponent(derUrns[0]);
-                                var ossNameParts = ossName.split("/");
-                                // Get the last element
-                                ossName = ossNameParts[ossNameParts.length - 1];
-
-                                downloadDerivative(urn, derUrns[0].replace('.obj' , '.mtl'), ossName.replace('.obj', '.mtl'));
-                            }
-                        } else {
-                            showProgress("Could not find specific OBJ file", "failed");
-                            console.log("askForFileType, Did not find the OBJ translation with the correct list of objectIds");
-                        }
+            askForFileType(
+                format,
+                urn,
+                guid,
+                objectIds,
+                rootFileName,
+                MyVars.fileExtType,
+                function (res) {
+                    if (format === "thumbnail") {
+                        downloadThumbnail(urn);
 
                         return;
                     }
+
+                    // Find the appropriate obj part
+                    for (var derId in res.derivatives) {
+                        var der = res.derivatives[derId];
+                        if (der.outputType === format) {
+                            // found it, now get derivative urn
+                            // leave objectIds parameter undefined
+                            var derUrns = getDerivativeUrns(
+                                der,
+                                format,
+                                false,
+                                objectIds
+                            );
+
+                            // url encode it
+                            if (derUrns) {
+                                derUrns[0] = encodeURIComponent(derUrns[0]);
+
+                                downloadDerivative(urn, derUrns[0], fileName);
+
+                                // in case of obj format, also try to download the material
+                                if (format === "obj") {
+                                    // The MTL file needs to have the exact name that it has on OSS
+                                    // because that's how it's referenced from the OBJ file
+                                    var ossName = decodeURIComponent(
+                                        derUrns[0]
+                                    );
+                                    var ossNameParts = ossName.split("/");
+                                    // Get the last element
+                                    ossName =
+                                        ossNameParts[ossNameParts.length - 1];
+
+                                    downloadDerivative(
+                                        urn,
+                                        derUrns[0].replace(".obj", ".mtl"),
+                                        ossName.replace(".obj", ".mtl")
+                                    );
+                                }
+                            } else {
+                                showProgress(
+                                    "Could not find specific OBJ file",
+                                    "failed"
+                                );
+                                console.log(
+                                    "askForFileType, Did not find the OBJ translation with the correct list of objectIds"
+                                );
+                            }
+
+                            return;
+                        }
+                    }
+
+                    showProgress("Could not find exported file", "failed");
+                    console.log(
+                        "askForFileType, Did not find " +
+                            format +
+                            " in the manifest"
+                    );
                 }
-
-                showProgress("Could not find exported file", "failed");
-                console.log("askForFileType, Did not find " + format + " in the manifest");
-            });
-
+            );
         });
 
         var deleteManifest = $("#deleteManifest");
-        deleteManifest.click(function() {
+        deleteManifest.click(function () {
             var urn = MyVars.selectedUrn;
 
             cleanupViewer();
 
-            delManifest(urn, function() { 
-                showProgress("Manifest deleted", "success")
-            }, function() {
-                showProgress("Failed to delete manifest", "failed")
-            });
+            delManifest(
+                urn,
+                function () {
+                    showProgress("Manifest deleted", "success");
+                },
+                function () {
+                    showProgress("Failed to delete manifest", "failed");
+                }
+            );
         });
     });
 }
 
 function updateFormats(format) {
-
     var apsFormats = $("#apsFormats");
     var formats = apsFormats.data("apsFormats");
     apsFormats.empty();
@@ -565,8 +630,8 @@ function updateFormats(format) {
     // using this workaround for the time being
     //apsFormats.append($("<option />").val('obj').text('obj'));
 
-    $.each(formats.formats, function(key, value) {
-        if (key === 'obj' || value.indexOf(format) > -1) {
+    $.each(formats.formats, function (key, value) {
+        if (key === "obj" || value.indexOf(format) > -1) {
             apsFormats.append($("<option />").val(key).text(key));
         }
     });
@@ -586,162 +651,179 @@ function prepareFilesTree() {
         $("#ClientID").val(res.ClientId);
     });
 
-    $('#apsFiles').jstree({
-        'core': {
-            'themes': {"icons": true},
-            'check_callback': true, // make it modifiable
-            'data': {
-                cache: false,
-                "url": '/dm/treeNode',
-                "dataType": "json",
-                "data": function (node) {
-                    return {
-                        "href": (node.id === '#' ? '#' : node.original.href)
-                    };
-                },
-                "success": function (nodes) {
-                    nodes.forEach(function (n) {
-                        if (n.type === 'hubs' && n.href.indexOf('b.') > 0)
-                            haveBIM360Hub = true;
-                    });
-
-                    if (!haveBIM360Hub) {
-                        $("#provisionAccountModal").modal();
-                        $("#provisionAccountSave").click(function () {
-                            $('#provisionAccountModal').modal('toggle');
-                            $('#apsFiles').jstree(true).refresh();
+    $("#apsFiles")
+        .jstree({
+            core: {
+                themes: { icons: true },
+                check_callback: true, // make it modifiable
+                data: {
+                    cache: false,
+                    url: "/dm/treeNode",
+                    dataType: "json",
+                    data: function (node) {
+                        return {
+                            href: node.id === "#" ? "#" : node.original.href,
+                        };
+                    },
+                    success: function (nodes) {
+                        nodes.forEach(function (n) {
+                            if (n.type === "hubs" && n.href.indexOf("b.") > 0)
+                                haveBIM360Hub = true;
                         });
-                        haveBIM360Hub = true;
-                    }
-                }
-            }
-        },
-        'types': {
-            'default': {
-                'icon': 'glyphicon glyphicon-cloud'
+
+                        if (!haveBIM360Hub) {
+                            $("#provisionAccountModal").modal();
+                            $("#provisionAccountSave").click(function () {
+                                $("#provisionAccountModal").modal("toggle");
+                                $("#apsFiles").jstree(true).refresh();
+                            });
+                            haveBIM360Hub = true;
+                        }
+                    },
+                },
             },
-            '#': {
-                'icon': 'glyphicon glyphicon-user'
+            types: {
+                default: {
+                    icon: "glyphicon glyphicon-cloud",
+                },
+                "#": {
+                    icon: "glyphicon glyphicon-user",
+                },
+                hubs: {
+                    icon: "glyphicon glyphicon-inbox",
+                },
+                projects: {
+                    icon: "glyphicon glyphicon-list-alt",
+                },
+                items: {
+                    icon: "glyphicon glyphicon-briefcase",
+                },
+                folders: {
+                    icon: "glyphicon glyphicon-folder-open",
+                },
+                versions: {
+                    icon: "glyphicon glyphicon-time",
+                },
             },
-            'hubs': {
-                'icon': 'glyphicon glyphicon-inbox'
+            plugins: ["types", "contextmenu"], // let's not use sort or state: , "state" and "sort"],
+            contextmenu: {
+                select_node: false,
+                items: filesTreeContextMenu,
             },
-            'projects': {
-                'icon': 'glyphicon glyphicon-list-alt'
-            },
-            'items': {
-                'icon': 'glyphicon glyphicon-briefcase'
-            },
-            'folders': {
-                'icon': 'glyphicon glyphicon-folder-open'
-            },
-            'versions': {
-                'icon': 'glyphicon glyphicon-time'
-            }
-        },
-        "plugins": ["types", "contextmenu"], // let's not use sort or state: , "state" and "sort"],
-        'contextmenu': {
-            'select_node': false,
-            'items': filesTreeContextMenu
-        }
-    }).bind("select_node.jstree", function (evt, data) {
-        // Clean up previous instance
-        cleanupViewer();
+        })
+        .bind("select_node.jstree", function (evt, data) {
+            // Clean up previous instance
+            cleanupViewer();
 
-        console.log("Selected item's ID/URN: " + data.node.original.wipid);
+            console.log("Selected item's ID/URN: " + data.node.original.wipid);
 
-        // Disable the hierarchy related controls for the time being
-        $("#apsFormats").attr('disabled', 'disabled');
-        $("#downloadExport").attr('disabled', 'disabled');
+            // Disable the hierarchy related controls for the time being
+            $("#apsFormats").attr("disabled", "disabled");
+            $("#downloadExport").attr("disabled", "disabled");
 
-        if (data.node.type === 'folders') {
-            $("#uploadFile2").removeAttr('disabled');
-        } else {
-            $("#uploadFile2").attr('disabled', 'disabled');
-        }
-
-        MyVars.selectedNode = data.node;
-
-        if (data.node.type === 'versions') {
-            $("#deleteManifest").removeAttr('disabled');
-            $("#uploadFile").removeAttr('disabled');
-
-            MyVars.keepTrying = true;
-
-            // Clear hierarchy tree
-            $('#apsHierarchy').empty().jstree('destroy');
-
-            // Clear properties tree
-            $('#apsProperties').empty().jstree('destroy');
-
-            // Delete cached data
-            $('#apsProperties').data('apsProperties', null);
-
-            updateFormats(data.node.original.fileType);
-
-            // Store info on selected file
-            MyVars.rootFileName = data.node.original.rootFileName;
-            MyVars.fileName = data.node.original.fileName;
-            MyVars.fileExtType = data.node.original.fileExtType;
-
-            if ($('#wipVsStorage').hasClass('active')) {
-                console.log("Using WIP id");
-                MyVars.selectedUrn = base64encode(data.node.original.wipid);
+            if (data.node.type === "folders") {
+                $("#uploadFile2").removeAttr("disabled");
             } else {
-                console.log("Using Storage id");
-                MyVars.selectedUrn = base64encode(data.node.original.storage);
+                $("#uploadFile2").attr("disabled", "disabled");
             }
 
-            // Fill hierarchy tree
-            // format, urn, guid, objectIds, rootFileName, fileExtType
-            showHierarchy(
-                MyVars.selectedUrn,
-                null,
-                null,
-                MyVars.rootFileName,
-                MyVars.fileExtType
-            );
-            console.log(
-                "data.node.original.storage = " + data.node.original.storage,
-                "data.node.original.wipid = " + data.node.original.wipid,
-                ", data.node.original.fileName = " + data.node.original.fileName,
-                ", data.node.original.fileExtType = " + data.node.original.fileExtType
-            );
+            MyVars.selectedNode = data.node;
 
-            // Show in viewer
-            //initializeViewer(data.node.data);
-        } else {
-            $("#deleteManifest").attr('disabled', 'disabled');
-            $("#uploadFile").attr('disabled', 'disabled');
+            if (data.node.type === "versions") {
+                $("#deleteManifest").removeAttr("disabled");
+                $("#uploadFile").removeAttr("disabled");
 
-            // Just open the children of the node, so that it's easier
-            // to find the actual versions
-            $("#apsFiles").jstree("open_node", data.node);
+                MyVars.keepTrying = true;
 
-            // And clear trees to avoid confusion thinking that the
-            // data belongs to the clicked model
-            $('#apsHierarchy').empty().jstree('destroy');
-            $('#apsProperties').empty().jstree('destroy');
-        }
-    });
+                // Clear hierarchy tree
+                $("#apsHierarchy").empty().jstree("destroy");
+
+                // Clear properties tree
+                $("#apsProperties").empty().jstree("destroy");
+
+                // Delete cached data
+                $("#apsProperties").data("apsProperties", null);
+
+                updateFormats(data.node.original.fileType);
+
+                // Store info on selected file
+                MyVars.rootFileName = data.node.original.rootFileName;
+                MyVars.fileName = data.node.original.fileName;
+                MyVars.fileExtType = data.node.original.fileExtType;
+
+                if ($("#wipVsStorage").hasClass("active")) {
+                    console.log("Using WIP id");
+                    MyVars.selectedUrn = base64encode(data.node.original.wipid);
+                } else {
+                    console.log("Using Storage id");
+                    MyVars.selectedUrn = base64encode(
+                        data.node.original.storage
+                    );
+                }
+
+                // Fill hierarchy tree
+                // format, urn, guid, objectIds, rootFileName, fileExtType
+                showHierarchy(
+                    MyVars.selectedUrn,
+                    null,
+                    null,
+                    MyVars.rootFileName,
+                    MyVars.fileExtType
+                );
+                console.log(
+                    "data.node.original.storage = " +
+                        data.node.original.storage,
+                    "data.node.original.wipid = " + data.node.original.wipid,
+                    ", data.node.original.fileName = " +
+                        data.node.original.fileName,
+                    ", data.node.original.fileExtType = " +
+                        data.node.original.fileExtType
+                );
+
+                // Show in viewer
+                //initializeViewer(data.node.data);
+            } else {
+                $("#deleteManifest").attr("disabled", "disabled");
+                $("#uploadFile").attr("disabled", "disabled");
+
+                // Just open the children of the node, so that it's easier
+                // to find the actual versions
+                $("#apsFiles").jstree("open_node", data.node);
+
+                // And clear trees to avoid confusion thinking that the
+                // data belongs to the clicked model
+                $("#apsHierarchy").empty().jstree("destroy");
+                $("#apsProperties").empty().jstree("destroy");
+            }
+        });
 }
 
 function downloadAttachment(href, attachmentVersionId) {
     console.log("downloadAttachment for href=" + href);
     // fileName = file name you want to use for download
-    var url = window.location.protocol + "//" + window.location.host +
-        "/dm/attachments/" + encodeURIComponent(attachmentVersionId) + "?href=" + encodeURIComponent(href);
+    var url =
+        window.location.protocol +
+        "//" +
+        window.location.host +
+        "/dm/attachments/" +
+        encodeURIComponent(attachmentVersionId) +
+        "?href=" +
+        encodeURIComponent(href);
 
-    window.open(url,'_blank');
+    window.open(url, "_blank");
 }
 
 function downloadFile(href) {
     console.log("downloadFile for href=" + href);
     // fileName = file name you want to use for download
-    var url = window.location.protocol + "//" + window.location.host +
-        "/dm/files/" + encodeURIComponent(href);
+    var url =
+        window.location.protocol +
+        "//" +
+        window.location.host +
+        "/dm/files/" +
+        encodeURIComponent(href);
 
-    window.open(url,'_blank');
+    window.open(url, "_blank");
 }
 
 function deleteAttachment(href, attachmentVersionId) {
@@ -750,78 +832,93 @@ function deleteAttachment(href, attachmentVersionId) {
 
     console.log("deleteAttachment for href=" + href);
     $.ajax({
-        url: '/dm/attachments/' + encodeURIComponent(attachmentVersionId),
-        headers: { 'wip-href': href },
-        type: 'DELETE'
-    }).done(function (data) {
-        console.log(data);
-        if (data.status === 'success') {
-            if (onsuccess !== undefined) {
-                onsuccess(data);
+        url: "/dm/attachments/" + encodeURIComponent(attachmentVersionId),
+        headers: { "wip-href": href },
+        type: "DELETE",
+    })
+        .done(function (data) {
+            console.log(data);
+            if (data.status === "success") {
+                if (onsuccess !== undefined) {
+                    onsuccess(data);
+                }
             }
-        }
-    }).fail(function(err) {
-        console.log('DELETE /api/manifest call failed\n' + err.statusText);
-    });
+        })
+        .fail(function (err) {
+            console.log("DELETE /api/manifest call failed\n" + err.statusText);
+        });
 }
 
 function filesTreeContextMenu(node, callback) {
-    if (node.type === 'versions') {
+    if (node.type === "versions") {
         $.ajax({
-            url: '/dm/attachments',
-            data: {href: node.original.href},
-            type: 'GET',
+            url: "/dm/attachments",
+            data: { href: node.original.href },
+            type: "GET",
             success: function (data) {
                 var menuItems = {};
                 menuItems["download"] = {
-                    "label": "Download",
-                    "action": function (obj) {
+                    label: "Download",
+                    action: function (obj) {
                         downloadFile(obj.item.href);
                     },
-                    "href": node.original.href
+                    href: node.original.href,
                 };
                 data.data.forEach(function (item) {
-                    if (item.meta.extension.type === "auxiliary:autodesk.core:Attachment") {
+                    if (
+                        item.meta.extension.type ===
+                        "auxiliary:autodesk.core:Attachment"
+                    ) {
                         var menuItem = {
-                            "label": item.displayName,
-                            "action": function (obj) {
-                                alert(obj.item.label + " with versionId = " + obj.item.versionId);
+                            label: item.displayName,
+                            action: function (obj) {
+                                alert(
+                                    obj.item.label +
+                                        " with versionId = " +
+                                        obj.item.versionId
+                                );
                             },
-                            "versionId": item.id,
-                            "submenu" : {
-                                "open": {
-                                    "label": "Open",
-                                    "action": function (obj) {
-                                        downloadAttachment(obj.item.href, obj.item.versionId);
+                            versionId: item.id,
+                            submenu: {
+                                open: {
+                                    label: "Open",
+                                    action: function (obj) {
+                                        downloadAttachment(
+                                            obj.item.href,
+                                            obj.item.versionId
+                                        );
                                     },
-                                    "versionId": item.id,
-                                    "href": node.original.href
+                                    versionId: item.id,
+                                    href: node.original.href,
                                 },
-                                "delete": {
-                                    "label": "Delete",
-                                    "action": function (obj) {
-                                        deleteAttachment(obj.item.href, obj.item.versionId);
+                                delete: {
+                                    label: "Delete",
+                                    action: function (obj) {
+                                        deleteAttachment(
+                                            obj.item.href,
+                                            obj.item.versionId
+                                        );
                                     },
-                                    "versionId": item.id,
-                                    "href": node.original.href
-                                }
-                            }
+                                    versionId: item.id,
+                                    href: node.original.href,
+                                },
+                            },
                         };
 
                         menuItems = menuItems || {};
                         menuItems[item.id] = menuItem;
                     }
-                })
+                });
 
                 if (Object.keys(menuItems).length < 2) {
                     menuItems["noItem"] = {
-                        "label": "No attachments", 
-                        "action": function () {}
+                        label: "No attachments",
+                        action: function () {},
                     };
-                } 
-                    
+                }
+
                 callback(menuItems);
-            }
+            },
         });
     }
 
@@ -834,7 +931,6 @@ function filesTreeContextMenu(node, callback) {
 /////////////////////////////////////////////////////////////////
 
 function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
-
     // You need to
     // 1) Post a job
     // 2) Get matadata (find the model guid you need)
@@ -842,29 +938,36 @@ function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
 
     // Get svf export in order to get hierarchy and properties
     // for the model
-    var format = 'svf';
-    askForFileType(format, urn, guid, objectIds, rootFileName, fileExtType, function (manifest) {
-        getMetadata(urn, function (guid) {
-            showProgress("Retrieving hierarchy...", "inprogress");
+    var format = "svf";
+    askForFileType(
+        format,
+        urn,
+        guid,
+        objectIds,
+        rootFileName,
+        fileExtType,
+        function (manifest) {
+            getMetadata(urn, function (guid) {
+                showProgress("Retrieving hierarchy...", "inprogress");
 
-            getHierarchy(urn, guid, function (data) {
-                showProgress("Retrieved hierarchy", "success");
+                getHierarchy(urn, guid, function (data) {
+                    showProgress("Retrieved hierarchy", "success");
 
-                for (var derId in manifest.derivatives) {
-                    var der = manifest.derivatives[derId];
-                    // We just have to make sure there is an svf
-                    // translation, but the viewer will find it
-                    // from the urn
-                    if (der.outputType === 'svf') {
-
-                        initializeViewer(urn);
+                    for (var derId in manifest.derivatives) {
+                        var der = manifest.derivatives[derId];
+                        // We just have to make sure there is an svf
+                        // translation, but the viewer will find it
+                        // from the urn
+                        if (der.outputType === "svf") {
+                            initializeViewer(urn);
+                        }
                     }
-                }
 
-                prepareHierarchyTree(urn, guid, data.data);
+                    prepareHierarchyTree(urn, guid, data.data);
+                });
             });
-        });
-    });
+        }
+    );
 }
 
 function addHierarchy(nodes) {
@@ -874,17 +977,20 @@ function addHierarchy(nodes) {
         // We are also adding properties below that
         // this function might iterate over and we should skip
         // those nodes
-        if (node.type && node.type === 'property' || node.type === 'properties') {
+        if (
+            (node.type && node.type === "property") ||
+            node.type === "properties"
+        ) {
             // skip this node
             var str = "";
         } else {
             node.text = node.name;
             node.children = node.objects;
             if (node.objectid === undefined) {
-                node.type = 'dunno'
+                node.type = "dunno";
             } else {
                 node.id = node.objectid;
-                node.type = 'object'
+                node.type = "object";
             }
             addHierarchy(node.objects);
         }
@@ -896,69 +1002,79 @@ function prepareHierarchyTree(urn, guid, json) {
     addHierarchy(json.objects);
 
     // Enable the hierarchy related controls
-    $("#apsFormats").removeAttr('disabled');
-    $("#downloadExport").removeAttr('disabled');
+    $("#apsFormats").removeAttr("disabled");
+    $("#downloadExport").removeAttr("disabled");
 
     // Store info of selected item
     MyVars.selectedUrn = urn;
     MyVars.selectedGuid = guid;
 
     // init the tree
-    $('#apsHierarchy').jstree({
-        'core': {
-            'check_callback': true,
-            'themes': {"icons": true},
-            'data': json.objects
-        },
-        'checkbox' : {
-            'tie_selection': false,
-            "three_state": true,
-            'whole_node': false
-        },
-        'types': {
-            'default': {
-                'icon': 'glyphicon glyphicon-cloud'
+    $("#apsHierarchy")
+        .jstree({
+            core: {
+                check_callback: true,
+                themes: { icons: true },
+                data: json.objects,
             },
-            'object': {
-                'icon': 'glyphicon glyphicon-save-file'
+            checkbox: {
+                tie_selection: false,
+                three_state: true,
+                whole_node: false,
+            },
+            types: {
+                default: {
+                    icon: "glyphicon glyphicon-cloud",
+                },
+                object: {
+                    icon: "glyphicon glyphicon-save-file",
+                },
+            },
+            plugins: [
+                "types",
+                "sort",
+                "checkbox",
+                "ui",
+                "themes",
+                "contextmenu",
+            ],
+            contextmenu: {
+                select_node: false,
+                items: hierarchyTreeContextMenu,
+            },
+        })
+        .bind("select_node.jstree", function (evt, data) {
+            if (data.node.type === "object") {
+                var urn = MyVars.selectedUrn;
+                var guid = MyVars.selectedGuid;
+                var objectId = data.node.original.objectid;
+
+                // Empty the property tree
+                $("#apsProperties").empty().jstree("destroy");
+
+                fetchProperties(urn, guid, function (props) {
+                    preparePropertyTree(urn, guid, objectId, props);
+                    selectInViewer([objectId]);
+                });
             }
-        },
-        "plugins": ["types", "sort", "checkbox", "ui", "themes", "contextmenu"],
-        'contextmenu': {
-            'select_node': false,
-            'items': hierarchyTreeContextMenu
-        }
-    }).bind("select_node.jstree", function (evt, data) {
-        if (data.node.type === 'object') {
-            var urn = MyVars.selectedUrn;
-            var guid = MyVars.selectedGuid;
-            var objectId = data.node.original.objectid;
+        })
+        .bind("check_node.jstree uncheck_node.jstree", function (evt, data) {
+            // To avoid recursion we are checking if the changes are
+            // caused by a viewer selection which is calling
+            // selectInHierarchyTree()
+            if (!MyVars.selectingInHierarchyTree) {
+                var elem = $("#apsHierarchy");
+                var nodeIds = elem.jstree("get_checked", null, true);
 
-            // Empty the property tree
-            $('#apsProperties').empty().jstree('destroy');
+                // Convert from strings to numbers
+                var objectIds = [];
+                $.each(nodeIds, function (index, value) {
+                    objectIds.push(parseInt(value, 10));
+                });
 
-            fetchProperties(urn, guid, function (props) {
-                preparePropertyTree(urn, guid, objectId, props);
-                selectInViewer([objectId]);
-            });
-        }
-    }).bind("check_node.jstree uncheck_node.jstree", function (evt, data) {
-        // To avoid recursion we are checking if the changes are
-        // caused by a viewer selection which is calling
-        // selectInHierarchyTree()
-        if (!MyVars.selectingInHierarchyTree) {
-            var elem = $('#apsHierarchy');
-            var nodeIds = elem.jstree("get_checked", null, true);
-
-            // Convert from strings to numbers
-            var objectIds = [];
-            $.each(nodeIds, function (index, value) {
-                objectIds.push(parseInt(value, 10));
-            });
-
-            selectInViewer(objectIds);
-        }
-    });
+                selectInViewer(objectIds);
+            }
+        });
 }
 
 function selectInHierarchyTree(objectIds) {
@@ -987,16 +1103,18 @@ function hierarchyTreeContextMenu(node, callback) {
     var menuItems = {};
 
     var menuItem = {
-        "label": "Select in Fusion",
-        "action": function (obj) {
-            var path = $("#apsHierarchy").jstree().get_path(node,'/');
+        label: "Select in Fusion",
+        action: function (obj) {
+            var path = $("#apsHierarchy").jstree().get_path(node, "/");
             alert(path);
 
             // Open this in the browser:
             // fusion360://command=open&file=something&properties=MyCustomPropertyValues
-            var url = "fusion360://command=open&file=something&properties=" + encodeURIComponent(path);
+            var url =
+                "fusion360://command=open&file=something&properties=" +
+                encodeURIComponent(path);
             $("#fusionLoader").attr("src", url);
-        }
+        },
     };
     menuItems[0] = menuItem;
 
@@ -1018,10 +1136,10 @@ function hierarchyTreeContextMenu(node, callback) {
 function fetchProperties(urn, guid, onsuccess) {
     var props = $("#apsProperties").data("apsProperties");
     if (!props) {
-        getProperties(urn, guid, function(data) {
+        getProperties(urn, guid, function (data) {
             $("#apsProperties").data("apsProperties", data.data);
             onsuccess(data.data);
-        })
+        });
     } else {
         onsuccess(props);
     }
@@ -1035,15 +1153,15 @@ function addSubProperties(node, props) {
         var subProp = props[subPropId];
         if (subProp instanceof Object) {
             var length = node.children.push({
-                "text": subPropId,
-                "type": "properties"
+                text: subPropId,
+                type: "properties",
             });
-            var newNode = node.children[length-1];
+            var newNode = node.children[length - 1];
             addSubProperties(newNode, subProp);
         } else {
             node.children.push({
-                "text": subPropId + " = " + subProp.toString(),
-                "type": "property"
+                text: subPropId + " = " + subProp.toString(),
+                type: "property",
             });
         }
     }
@@ -1062,31 +1180,33 @@ function addProperties(node, props) {
 
 function preparePropertyTree(urn, guid, objectId, props) {
     // Convert data to expected format
-    var data = { 'objectid' : objectId };
+    var data = { objectid: objectId };
     addProperties(data, props.collection);
 
     // init the tree
-    $('#apsProperties').jstree({
-        'core': {
-            'check_callback': true,
-            'themes': {"icons": true},
-            'data': data.children
-        },
-        'types': {
-            'default': {
-                'icon': 'glyphicon glyphicon-cloud'
+    $("#apsProperties")
+        .jstree({
+            core: {
+                check_callback: true,
+                themes: { icons: true },
+                data: data.children,
             },
-            'property': {
-                'icon': 'glyphicon glyphicon-tag'
+            types: {
+                default: {
+                    icon: "glyphicon glyphicon-cloud",
+                },
+                property: {
+                    icon: "glyphicon glyphicon-tag",
+                },
+                properties: {
+                    icon: "glyphicon glyphicon-folder-open",
+                },
             },
-            'properties': {
-                'icon': 'glyphicon glyphicon-folder-open'
-            }
-        },
-        "plugins": ["types", "sort"]
-    }).bind("activate_node.jstree", function (evt, data) {
-       //
-    });
+            plugins: ["types", "sort"],
+        })
+        .bind("activate_node.jstree", function (evt, data) {
+            //
+        });
 }
 
 /////////////////////////////////////////////////////////////////
@@ -1105,43 +1225,41 @@ function cleanupViewer() {
         MyVars.viewer.tearDown();
         MyVars.viewer.setUp(MyVars.viewer.config);
 
-        document.getElementById('apsViewer').style.display = 'none';
+        document.getElementById("apsViewer").style.display = "none";
     }
 }
 
 function initializeViewer(urn) {
     cleanupViewer();
 
-    document.getElementById('apsViewer').style.display = 'block';
+    document.getElementById("apsViewer").style.display = "block";
 
     console.log("Launching Autodesk Viewer for: " + urn);
 
-
-    
-
     var options = {
-        document: 'urn:' + urn,
-        env: 'AutodeskProduction',
-        getAccessToken: get3LegToken // this works fine, but if I pass get3LegToken it only works the first time
+        document: "urn:" + urn,
+        env: "AutodeskProduction2",
+        api: "streamingV2",
+        getAccessToken: getToken, // this works fine, but if I pass getToken it only works the first time
     };
 
     if (MyVars.viewer) {
         loadDocument(MyVars.viewer, options.document);
     } else {
-        var viewerElement = document.getElementById('apsViewer');
+        var viewerElement = document.getElementById("apsViewer");
         var config = {
-            extensions: ['Autodesk.Viewing.WebVR', 'Autodesk.Viewing.MarkupsGui', 'Autodesk.AEC.LevelsExtension'],
-            experimental: ['webVR_orbitModel']
+            extensions: ["Autodesk.DocumentBrowser"], // 'Autodesk.Viewing.WebVR', 'Autodesk.Viewing.MarkupsGui', 'Autodesk.AEC.LevelsExtension'],
+            //experimental: ['webVR_orbitModel']
         };
-        MyVars.viewer = new Autodesk.Viewing.Private.GuiViewer3D(viewerElement, config);
-        Autodesk.Viewing.Initializer(
-            options,
-            function () {
-                MyVars.viewer.start(); // this would be needed if we also want to load extensions
-                loadDocument(MyVars.viewer, options.document);
-                addSelectionListener(MyVars.viewer);
-            }
+        MyVars.viewer = new Autodesk.Viewing.Private.GuiViewer3D(
+            viewerElement,
+            config
         );
+        Autodesk.Viewing.Initializer(options, function () {
+            MyVars.viewer.start(); // this would be needed if we also want to load extensions
+            loadDocument(MyVars.viewer, options.document);
+            //addSelectionListener(MyVars.viewer);
+        });
     }
 }
 
@@ -1154,10 +1272,11 @@ function addSelectionListener(viewer) {
             var dbId = event.dbIdArray[0];
             if (dbId) {
                 viewer.getProperties(dbId, function (props) {
-                   console.log(props.externalId);
+                    console.log(props.externalId);
                 });
             }
-        });
+        }
+    );
 }
 
 // Get the full path of the selected body
@@ -1171,9 +1290,9 @@ function getFullPath(tree, dbId) {
 
     // We do not care about the top 2 items because it's just the file name
     // and root component name
-    path = path.splice(2, path.length - 1)
+    path = path.splice(2, path.length - 1);
 
-    return path.join('+');
+    return path.join("+");
 }
 
 function showAllProperties(viewer) {
@@ -1193,7 +1312,7 @@ function showAllProperties(viewer) {
 // to check for body sepcific data in our mongo db
 // Call this once the Viewer has been set up
 function addFusionButton(viewer) {
-    var button = new Autodesk.Viewing.UI.Button('toolbarFusion');
+    var button = new Autodesk.Viewing.UI.Button("toolbarFusion");
     button.onClick = function (e) {
         var ids = viewer.getSelection();
         if (ids.length === 1) {
@@ -1201,32 +1320,41 @@ function addFusionButton(viewer) {
             var fullPath = getFullPath(tree, ids[0]);
             console.log(fullPath);
 
-            $.ajax ({
-                url: '/dm/fusionData/' + viewer.model.loader.svfUrn + '/' + encodeURIComponent(fullPath),
-                type: 'GET'
-            }).done (function (data) {
-                console.log('Retrieved data');
-                console.log(data);
+            $.ajax({
+                url:
+                    "/dm/fusionData/" +
+                    viewer.model.loader.svfUrn +
+                    "/" +
+                    encodeURIComponent(fullPath),
+                type: "GET",
+            })
+                .done(function (data) {
+                    console.log("Retrieved data");
+                    console.log(data);
 
-                alert(JSON.stringify(data, null, 2));
-            }).fail (function (xhr, ajaxOptions, thrownError) {
-                alert('Failed to retrieve data') ;
-            }) ;
+                    alert(JSON.stringify(data, null, 2));
+                })
+                .fail(function (xhr, ajaxOptions, thrownError) {
+                    alert("Failed to retrieve data");
+                });
         }
     };
-    button.addClass('toolbarFusionButton');
-    button.setToolTip('Show Fusion properties');
+    button.addClass("toolbarFusionButton");
+    button.setToolTip("Show Fusion properties");
 
     // SubToolbar
-    var subToolbar = new Autodesk.Viewing.UI.ControlGroup('myFusionAppGroup');
+    var subToolbar = new Autodesk.Viewing.UI.ControlGroup("myFusionAppGroup");
     subToolbar.addControl(button);
 
     if (viewer.toolbar) {
         viewer.toolbar.addControl(subToolbar);
     } else {
-        viewer.addEventListener(Autodesk.Viewing.TOOLBAR_CREATED_EVENT, function() {
-            viewer.toolbar.addControl(subToolbar);
-        });
+        viewer.addEventListener(
+            Autodesk.Viewing.TOOLBAR_CREATED_EVENT,
+            function () {
+                viewer.toolbar.addControl(subToolbar);
+            }
+        );
     }
 }
 
@@ -1236,7 +1364,7 @@ function loadDocument(viewer, documentId) {
 
     // Make sure that the loaded document's setting won't
     // override it and change it to something else
-    viewer.prefs.tag('ignore-producer');
+    viewer.prefs.tag("ignore-producer");
 
     Autodesk.Viewing.Document.load(
         documentId,
@@ -1252,7 +1380,7 @@ function loadDocument(viewer, documentId) {
         function (errorMsg) {
             //showThumbnail(documentId.substr(4, documentId.length - 1));
         }
-    )
+    );
 }
 
 function selectInViewer(objectIds) {
@@ -1266,23 +1394,23 @@ function selectInViewer(objectIds) {
 /////////////////////////////////////////////////////////////////
 
 function showProgress(text, status) {
-    var progressInfo = $('#progressInfo');
-    var progressInfoText = $('#progressInfoText');
-    var progressInfoIcon = $('#progressInfoIcon');
+    var progressInfo = $("#progressInfo");
+    var progressInfoText = $("#progressInfoText");
+    var progressInfoIcon = $("#progressInfoIcon");
 
-    var oldClasses = progressInfo.attr('class');
+    var oldClasses = progressInfo.attr("class");
     var newClasses = "";
     var newText = text;
 
-    if (status === 'failed') {
-        newClasses = 'btn btn-danger';
-    } else if (status === 'inprogress' || status === 'pending') {
-        newClasses = 'btn btn-warning';
+    if (status === "failed") {
+        newClasses = "btn btn-danger";
+    } else if (status === "inprogress" || status === "pending") {
+        newClasses = "btn btn-warning";
         newText += " (Click to stop)";
-    } else if (status === 'success') {
-        newClasses = 'btn btn-success';
+    } else if (status === "success") {
+        newClasses = "btn btn-success";
     } else {
-        newClasses = 'btn btn-info';
+        newClasses = "btn btn-info";
     }
 
     // Only update if changed
@@ -1291,14 +1419,15 @@ function showProgress(text, status) {
     }
 
     if (oldClasses !== newClasses) {
-        progressInfo.attr('class', newClasses);
+        progressInfo.attr("class", newClasses);
 
-        if (newClasses === 'btn btn-warning') {
-            progressInfoIcon.attr('class', 'glyphicon glyphicon-refresh glyphicon-spin');
+        if (newClasses === "btn btn-warning") {
+            progressInfoIcon.attr(
+                "class",
+                "glyphicon glyphicon-refresh glyphicon-spin"
+            );
         } else {
-            progressInfoIcon.attr('class', '');
+            progressInfoIcon.attr("class", "");
         }
     }
 }
-
-
