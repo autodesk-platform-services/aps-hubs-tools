@@ -23,7 +23,7 @@ router.get('/formats', function (req, res) {
             res.json(formats.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 
@@ -40,7 +40,7 @@ router.get('/manifests/:urn', function (req, res) {
             res.json(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 
@@ -52,7 +52,7 @@ router.delete('/manifests/:urn', function (req, res) {
                 res.json(data.body);
             })
             .catch(function (error) {
-                res.status(error.statusCode).end(error.statusMessage);
+                res.status(error.response.status).end(error.message);
             });
 
     } catch (err) {
@@ -72,7 +72,7 @@ router.get('/metadatas/:urn', function (req, res) {
             res.json(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 
@@ -92,7 +92,7 @@ router.get('/hierarchy', function (req, res) {
             }
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 
@@ -108,7 +108,7 @@ router.get('/properties', function (req, res) {
             res.json(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 
@@ -127,7 +127,7 @@ router.get('/download', function (req, res) {
             res.end(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 
@@ -159,7 +159,7 @@ router.post('/export', jsonParser, function (req, res) {
     
     var input = (isComposite) ? {
         "urn": req.body.urn,
-        //"checkReferences": true
+        //"checkReferences": true,
         "rootFilename": rootFilename,
         "compressedUrn": true
     } : {
@@ -177,9 +177,6 @@ router.post('/export', jsonParser, function (req, res) {
 
     var derivatives = new apsSDK.DerivativesApi();
 
-    if (!derivatives)
-        return;
-
     console.log("input", input);    
 
     derivatives.translate({"input": input, "output": output}, {}, null, req.session.internal)
@@ -187,7 +184,7 @@ router.post('/export', jsonParser, function (req, res) {
             res.json(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.response.status).end(error.message);
         });
 });
 

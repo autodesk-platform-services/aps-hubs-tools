@@ -1,4 +1,4 @@
-var MyVars = {
+const MyVars = {
     keepTrying: true,
 };
 
@@ -8,33 +8,45 @@ $(document).ready(function () {
 
     // Make sure that "change" event is fired
     // even if same file is selected for upload
-    $("#apsUploadHidden").click(function (evt) {
+    $("#apsUploadHidden").click(evt => {
         evt.target.value = "";
     });
 
-    $("#refreshTree").click(function (evt) {
+    $("#refreshTree").click(evt => {
         $("#apsFiles").jstree(true).refresh();
     });
 
-    $("#apsUploadHidden").change(function (evt) {
-        uploadFile(this.value, this.files[0]);
+    $("#apsUploadHidden").change(evt => {
+        onUploadFile(evt.target.value, evt.target.files[0]);
     });
 
-    $("#uploadFile").click(function (evt) {
+    $("#uploadFile").click(evt => {
         evt.preventDefault();
         MyVars.isAttachment = true;
         $("#apsUploadHidden").trigger("click");
     });
 
-    $("#uploadFile2").click(function (evt) {
+    $("#uploadFile2").click(evt => {
         evt.preventDefault();
         MyVars.isAttachment = false;
         $("#apsUploadHidden").trigger("click");
     });
 
+	$("#downloadExport").click(onDownloadExport);
+
+	$("#deleteManifest").click(() => {
+		cleanupViewer();
+
+		deleteManifest(MyVars.selectedUrn);
+	});
+
+	$("#progressInfo").click(() => {
+        MyVars.keepTrying = false;
+    });
+
     // Get the tokens
-    getToken(function (token) {
-        var auth = $("#authenticate");
+    getToken(token => {
+        const auth = $("#authenticate");
 
         if (!token) {
             auth.click(signIn);
@@ -42,9 +54,9 @@ $(document).ready(function () {
             MyVars.token = token;
 
             auth.html("You're logged in");
-            auth.click(function () {
+            auth.click(() => {
                 if (MyVars.token) {
-                    if (confirm("You're sure you want to log out?")) {
+                    if (confirm("You're sure you want to sign out?")) {
                         signOut();
                     }
                 } else {
@@ -59,14 +71,118 @@ $(document).ready(function () {
             fillFormats();
         }
     });
-
-    $("#progressInfo").click(function () {
-        MyVars.keepTrying = false;
-        showProgress("Translation stopped", "failed");
-    });
 });
 
-function uploadFile(fileName, file) {
+async function onDownloadExport() {
+	try {
+		const elem = $("#apsHierarchy");
+		const tree = elem.jstree();
+		const rootNodeId = tree.get_node("#").children[0];
+		const rootNode = tree.get_node(rootNodeId);
+
+		const format = $("#apsFormats").val();
+		const urn = MyVars.selectedUrn;
+		const guid = MyVars.selectedGuid;
+		const fileName = rootNode.text + "." + format;
+		const rootFileName = MyVars.rootFileName;
+		const nodeIds = elem.jstree("get_checked", null, true);
+
+		// Only OBJ supports subcomponent selection
+		// using objectId's
+		let objectIds = null;
+		if (format === "obj") {
+			objectIds = [-1];
+			if (nodeIds.length) {
+				objectIds = [];
+
+				$.each(nodeIds, function (index, value) {
+					objectIds.push(parseInt(value, 10));
+				});
+			}
+		}
+
+		// The rest can be exported with a single function
+		const res = await askForFileType(
+			format,
+			urn,
+			guid,
+			objectIds,
+			rootFileName,
+			MyVars.fileExtType,
+		);
+
+		// If it's a thumbnail then just download it
+		if (format === "thumbnail") {
+			downloadThumbnail(urn);
+
+			return;
+		}
+
+		// Find the appropriate obj part
+		const der = res.derivatives.find(
+			item => item.outputType === format
+		);
+
+		if (!der) {
+			showProgress("Could not find exported file", "failed");
+			console.log(
+				"askForFileType, Did not find " +
+					format +
+					" in the manifest"
+			);
+			return;
+		}
+		
+		// found it, now get derivative urn
+		// leaf objectIds parameter undefined
+		const derUrns = getDerivativeUrns(
+			der,
+			format,
+			false,
+			objectIds
+		);
+
+		if (!derUrns) {
+			showProgress(
+				"Could not find specific OBJ file",
+				"failed"
+			);
+			console.log(
+				"askForFileType, Did not find the OBJ translation with the correct list of objectIds"
+			);
+			return;
+		}
+
+		// url encode it
+		derUrns[0] = encodeURIComponent(derUrns[0]);
+
+		downloadDerivative(urn, derUrns[0], fileName);
+
+		// in case of obj format, also try to download the material
+		if (format === "obj") {
+			// The MTL file needs to have the exact name that it has on OSS
+			// because that's how it's referenced from the OBJ file
+			let ossName = decodeURIComponent(
+				derUrns[0]
+			);
+			const ossNameParts = ossName.split("/");
+
+			// Get the last element
+			ossName =
+				ossNameParts[ossNameParts.length - 1];
+
+			downloadDerivative(
+				urn,
+				derUrns[0].replace(".obj", ".mtl"),
+				ossName.replace(".obj", ".mtl")
+			);
+		}
+	} catch (err) {
+		console.log(err);
+	}
+}
+
+function onUploadFile(fileName, file) {
     showProgress("Uploading file... ", "inprogress");
     let data = new FormData();
     data.append(0, file);
@@ -105,7 +221,7 @@ function uploadFile(fileName, file) {
 }
 
 function base64encode(str) {
-    var ret = "";
+    let ret = "";
     if (window.btoa) {
         ret = window.btoa(str);
     } else {
@@ -119,29 +235,26 @@ function base64encode(str) {
     // Have a look at this page for info on "Unpadded 'base64url' for "named information" URI's (RFC 6920)"
     // which is the format being used by the Model Derivative API
     // https://en.wikipedia.org/wiki/Base64#Variants_summary_table
-    var ret2 = ret.replace(/=/g, "").replace(/[/]/g, "_").replace(/[+]/g, "-");
+    const ret2 = ret.replace(/=/g, "").replace(/[/]/g, "_").replace(/[+]/g, "-");
 
     console.log("base64encode result = " + ret2);
 
     return ret2;
 }
 
-function signIn() {
-    $.ajax({
-        url: "/user/authenticate",
-        success: function (rootUrl) {
-            location.href = rootUrl;
-        },
-    });
+async function signIn() {
+    const response = await fetch("/user/authenticate");
+
+    if (response.ok) {
+        const rootUrl = await response.text();
+        location.href = rootUrl;
+    }
 }
 
-function signOut() {
+async function signOut() {
     // Delete session data both locally and on the server
     MyVars.token = null;
-    $.ajax({
-        url: "/user/signOut",
-        success: function (oauthUrl) {},
-    });
+    await fetch("/user/signOut");
 
     let loadCount = 0;
     $("#hiddenFrame").on("load", function (data) {
@@ -160,19 +273,19 @@ function signOut() {
     );
 }
 
-function getToken(callback) {
+async function getToken(callback) {
     if (callback) {
-        $.ajax({
-            url: "/user/token",
-            success: function (data) {
-                MyVars.token = data.token;
-                console.log(
-                    "Returning new 3 legged token (User Authorization): " +
-                        MyVars.token
-                );
-                callback(data.token, data.expires_in);
-            },
-        });
+        const response = await fetch("/user/token");
+
+        if (response.ok) {
+            const data = await response.json();
+            MyVars.token = data.token;
+            console.log(
+                "Returning new 3 legged token (User Authorization): " +
+                    MyVars.token
+            );
+            callback(data.token, data.expires_in);
+        }
     } else {
         console.log(
             "Returning saved 3 legged token (User Authorization): " +
@@ -186,7 +299,7 @@ function getToken(callback) {
 function downloadDerivative(urn, derUrn, fileName) {
     console.log("downloadDerivative for urn=" + urn + " and derUrn=" + derUrn);
     // fileName = file name you want to use for download
-    var url =
+    const url =
         window.location.protocol +
         "//" +
         window.location.host +
@@ -203,7 +316,7 @@ function downloadDerivative(urn, derUrn, fileName) {
 function downloadThumbnail(urn) {
     console.log("downloadDerivative for urn=" + urn);
     // fileName = file name you want to use for download
-    var url =
+    const url =
         window.location.protocol +
         "//" +
         window.location.host +
@@ -235,16 +348,16 @@ function getDerivativeUrns(
             " and objectIds=" +
             (objectIds ? objectIds.toString() : "none")
     );
-    var res = [];
-    for (var childId in derivative.children) {
-        var child = derivative.children[childId];
+    const res = [];
+    for (const childId in derivative.children) {
+        const child = derivative.children[childId];
         // using toLowerCase to handle inconsistency
         if (child.role === "3d" || child.role.toLowerCase() === format) {
             if (isArraySame(child.objectIds, objectIds)) {
                 // Some formats like svf might have children
                 if (child.children) {
-                    for (var subChildId in child.children) {
-                        var subChild = child.children[subChildId];
+                    for (const subChildId in child.children) {
+                        const subChild = child.children[subChildId];
 
                         if (subChild.role === "graphics") {
                             res.push(subChild.urn);
@@ -272,18 +385,17 @@ function getDerivativeUrns(
 // SVF, STEP, STL, IGES:
 // Posts the job then waits for the manifest and then download the file
 // if it's created
-function askForFileType(
+async function askForFileType(
     format,
     urn,
     guid,
     objectIds,
     rootFileName,
-    fileExtType,
-    onsuccess
+    fileExtType
 ) {
     console.log("askForFileType " + format + " for urn=" + urn);
 
-    var advancedOptions = {
+    const advancedOptions = {
         stl: {
             format: "binary",
             exportColor: true,
@@ -295,177 +407,160 @@ function askForFileType(
         },
     };
 
-    $.ajax({
-        url: "/md/export",
-        type: "POST",
-        contentType: "application/json",
-        dataType: "json",
-        data: JSON.stringify({
+    const response = await fetch("/md/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
             urn: urn,
             format: format,
             advanced: advancedOptions[format],
             rootFileName: rootFileName,
             fileExtType: fileExtType,
         }),
-    })
-        .done(function (data) {
-            console.log(data);
+    });
 
-            if (
-                data.result === "success" || // newly submitted data
-                data.result === "created" // already submitted data
-            ) {
-                getManifest(urn, function (res) {
-                    onsuccess(res);
-                });
-            }
-        })
-        .fail(function (err) {
-            showProgress("Could not start translation", "fail");
-            console.log("/md/export call failed\n" + err.statusText);
-        });
+    if (!response.ok) {
+        showProgress("Could not start translation", "failed");
+        throw new Error(response.statusText);
+    }
+
+    const data = await response.json();
+
+    if (
+        data.result === "success" || // newly submitted data
+        data.result === "created" // already submitted data
+    ) {
+        return await getManifest(urn);
+    }
+
+	throw new Error(data.result);
 }
 
 // We need this in order to get an OBJ file for the model
-function getMetadata(urn, onsuccess) {
+async function getMetadata(urn) {
     console.log("getMetadata for urn=" + urn);
-    $.ajax({
-        url: "/md/metadatas/" + urn,
-        type: "GET",
-    })
-        .done(function (data) {
-            console.log(data);
 
-            // Get first model guid
-            // If it does not exists then something is wrong
-            // let's check the manifest
-            // If get manifest sees a failed attempt then it will
-            // delete the manifest
-            var md0 = data.data.metadata[0];
-            if (!md0) {
-                getManifest(urn, function () {});
-            } else {
-                var guid = md0.guid;
-                if (onsuccess !== undefined) {
-                    onsuccess(guid);
-                }
-            }
-        })
-        .fail(function (err) {
-            console.log("GET /md/metadata call failed\n" + err.statusText);
-        });
+	const response = await fetch("/md/metadatas/" + urn);
+
+	if (!response.ok) {
+		console.log("GET /md/metadata call failed\n" + response.statusText);
+		throw new Error(response.statusText);
+	}
+
+	const data = await response.json();
+	console.log(data);
+
+	// Get first model guid
+	// If it does not exists then something is wrong
+	// let's check the manifest
+	// If get manifest sees a failed attempt then it will
+	// delete the manifest
+	const md0 = data?.data?.metadata[0];
+	if (!md0) {
+		return await getManifest(urn);
+	} else {
+		return md0.guid;
+	}
+       
 }
 
-function getHierarchy(urn, guid, onsuccess) {
+async function getHierarchy(urn, guid) {
     console.log("getHierarchy for urn=" + urn + " and guid=" + guid);
-    $.ajax({
-        url: "/md/hierarchy",
-        type: "GET",
-        data: { urn: urn, guid: guid },
-    })
-        .done(function (data) {
-            console.log(data);
 
-            // If it's 'accepted' then it's not ready yet
-            if (data.result === "accepted") {
-                // Let's try again
-                if (MyVars.keepTrying) {
-                    window.setTimeout(function () {
-                        getHierarchy(urn, guid, onsuccess);
-                    }, 500);
-                } else {
-                    MyVars.keepTrying = true;
-                }
+	MyVars.keepTrying = true;
+	while (true) {
+		const response = await fetch("/md/hierarchy?urn=" + urn + "&guid=" + guid);
 
-                return;
-            }
+		if (!response.ok) {
+			console.log("GET /md/hierarchy call failed\n" + response.statusText);
+			throw new Error(response.statusText);
+		}
 
-            // We got what we want
-            if (onsuccess !== undefined) {
-                onsuccess(data);
-            }
-        })
-        .fail(function (err) {
-            console.log("GET /md/hierarchy call failed\n" + err.statusText);
-        });
+		const data = await response.json();
+		console.log(data);
+
+		// If it's 'accepted' then it's not ready yet
+		if (data.result === "accepted") {
+			// Let's try again
+			if (MyVars.keepTrying) 
+				continue;
+		}	
+		
+		return data;
+	}
 }
 
-function getProperties(urn, guid, onsuccess) {
+async function getProperties(urn, guid) {
     console.log("getProperties for urn=" + urn + " and guid=" + guid);
-    $.ajax({
-        url: "/md/properties",
-        type: "GET",
-        data: { urn: urn, guid: guid },
-    })
-        .done(function (data) {
-            console.log(data);
 
-            if (onsuccess !== undefined) {
-                onsuccess(data);
-            }
-        })
-        .fail(function (err) {
-            console.log("GET /api/properties call failed\n" + err.statusText);
-        });
+	const response = await fetch("/md/properties?urn=" + urn + "&guid=" + guid);
+
+	if (!response.ok) {
+		console.log("GET /api/properties call failed\n" + err.statusText);
+		throw new Error(response.statusText);
+	}
+
+	const data = await response.json();
+	console.log(data);
+
+    return data;
 }
 
-function getManifest(urn, onsuccess) {
+async function getManifest(urn) {
     console.log("getManifest for urn=" + urn);
-    $.ajax({
-        url: "/md/manifests/" + urn,
-        type: "GET",
-    })
-        .done(function (data) {
-            console.log(data);
 
-            if (data.status === "failed") {
-                showProgress("Translation failed", data.status);
-                return;
-            }
-
-            if (data.progress === "complete") {
-                showProgress("Translation completed", data.status);
-                onsuccess(data);
-                return;
-            }
-
-            showProgress("Translation progress: " + data.progress, data.status);
-
-            if (MyVars.keepTrying) {
-                // Keep calling until it's done
-                window.setTimeout(function () {
-                    getManifest(urn, onsuccess);
-                }, 500);
-            } else {
-                MyVars.keepTrying = true;
-            }
-        })
-        .fail(function (err) {
-            showProgress("Translation failed", "failed");
-            console.log("GET /api/manifest call failed\n" + err.statusText);
+	MyVars.keepTrying = true;
+    while (true) {
+        const response = await fetch("/md/manifests/" + urn, {
+            method: "GET",
         });
+
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+
+        const data = await response.json();
+        console.log(data);
+
+        if (data.status === "failed") {
+            showProgress("Translation failed", data.status);
+            throw new Error(response.statusText);
+        }
+
+        if (data.progress === "complete") {
+            showProgress("Translation completed", data.status);
+            return data;
+        }
+
+        showProgress("Translation progress: " + data.progress, data.status);
+
+        if (MyVars.keepTrying) 
+			continue;
+
+		showProgress("Monitoring stopped", "failed");
+        throw new Error("Stopped by user");
+    }
 }
 
-function delManifest(urn, onsuccess, onerror) {
-    console.log("delManifest for urn=" + urn);
-    $.ajax({
-        url: "/md/manifests/" + urn,
-        type: "DELETE",
-    })
-        .done(function (data) {
-            console.log(data);
-            if (data.result === "success") {
-                if (onsuccess !== undefined) {
-                    onsuccess(data);
-                }
-            }
-        })
-        .fail(function (err) {
-            console.log("DELETE /api/manifest call failed\n" + err.statusText);
-            if (onerror !== undefined) {
-                onerror(err);
-            }
-        });
+async function deleteManifest(urn) {
+    console.log("deleteManifest for urn=" + urn);
+
+	const response = await fetch("/md/manifests/" + urn, {
+		method: "DELETE",
+	});
+
+	if (!response.ok) {
+		console.log("DELETE /api/manifest call failed\n" + err.statusText);
+		showProgress("Failed to delete manifest", "failed");
+		throw new Error(response.statusText);
+	}
+
+	const data = await response.json();
+	console.log(data);
+	if (data.result === "success") {
+		showProgress("Manifest deleted", "success");
+		return data;
+	}
 }
 
 /////////////////////////////////////////////////////////////////
@@ -473,157 +568,32 @@ function delManifest(urn, onsuccess, onerror) {
 // Shows the export file formats available for the selected model
 /////////////////////////////////////////////////////////////////
 
-function getFormats(onsuccess) {
+async function getFormats() {
     console.log("getFormats");
-    $.ajax({
-        url: "/md/formats",
-        type: "GET",
-    })
-        .done(function (data) {
-            console.log(data);
 
-            if (onsuccess !== undefined) {
-                onsuccess(data);
-            }
-        })
-        .fail(function (err) {
-            console.log("GET /md/formats call failed\n" + err.statusText);
-        });
+	const response = await fetch("/md/formats");
+
+	if (!response.ok) {
+		console.log("GET /md/formats call failed\n" + err.statusText);
+		throw new Error(response.statusText);
+	}
+
+	const data = await response.json();
+	console.log(data);
+
+	return data;
 }
 
-function fillFormats() {
-    getFormats(function (data) {
-        var apsFormats = $("#apsFormats");
-        apsFormats.data("apsFormats", data);
+async function fillFormats() {
+    const data = await getFormats();
 
-        var download = $("#downloadExport");
-        download.click(function () {
-            MyVars.keepTrying = true;
-
-            var elem = $("#apsHierarchy");
-            var tree = elem.jstree();
-            var rootNodeId = tree.get_node("#").children[0];
-            var rootNode = tree.get_node(rootNodeId);
-
-            var format = $("#apsFormats").val();
-            var urn = MyVars.selectedUrn;
-            var guid = MyVars.selectedGuid;
-            var fileName = rootNode.text + "." + format;
-            var rootFileName = MyVars.rootFileName;
-            var nodeIds = elem.jstree("get_checked", null, true);
-
-            // Only OBJ supports subcomponent selection
-            // using objectId's
-            var objectIds = null;
-            if (format === "obj") {
-                objectIds = [-1];
-                if (nodeIds.length) {
-                    objectIds = [];
-
-                    $.each(nodeIds, function (index, value) {
-                        objectIds.push(parseInt(value, 10));
-                    });
-                }
-            }
-
-            // The rest can be exported with a single function
-            askForFileType(
-                format,
-                urn,
-                guid,
-                objectIds,
-                rootFileName,
-                MyVars.fileExtType,
-                function (res) {
-                    if (format === "thumbnail") {
-                        downloadThumbnail(urn);
-
-                        return;
-                    }
-
-                    // Find the appropriate obj part
-                    for (var derId in res.derivatives) {
-                        var der = res.derivatives[derId];
-                        if (der.outputType === format) {
-                            // found it, now get derivative urn
-                            // leave objectIds parameter undefined
-                            var derUrns = getDerivativeUrns(
-                                der,
-                                format,
-                                false,
-                                objectIds
-                            );
-
-                            // url encode it
-                            if (derUrns) {
-                                derUrns[0] = encodeURIComponent(derUrns[0]);
-
-                                downloadDerivative(urn, derUrns[0], fileName);
-
-                                // in case of obj format, also try to download the material
-                                if (format === "obj") {
-                                    // The MTL file needs to have the exact name that it has on OSS
-                                    // because that's how it's referenced from the OBJ file
-                                    var ossName = decodeURIComponent(
-                                        derUrns[0]
-                                    );
-                                    var ossNameParts = ossName.split("/");
-                                    // Get the last element
-                                    ossName =
-                                        ossNameParts[ossNameParts.length - 1];
-
-                                    downloadDerivative(
-                                        urn,
-                                        derUrns[0].replace(".obj", ".mtl"),
-                                        ossName.replace(".obj", ".mtl")
-                                    );
-                                }
-                            } else {
-                                showProgress(
-                                    "Could not find specific OBJ file",
-                                    "failed"
-                                );
-                                console.log(
-                                    "askForFileType, Did not find the OBJ translation with the correct list of objectIds"
-                                );
-                            }
-
-                            return;
-                        }
-                    }
-
-                    showProgress("Could not find exported file", "failed");
-                    console.log(
-                        "askForFileType, Did not find " +
-                            format +
-                            " in the manifest"
-                    );
-                }
-            );
-        });
-
-        var deleteManifest = $("#deleteManifest");
-        deleteManifest.click(function () {
-            var urn = MyVars.selectedUrn;
-
-            cleanupViewer();
-
-            delManifest(
-                urn,
-                function () {
-                    showProgress("Manifest deleted", "success");
-                },
-                function () {
-                    showProgress("Failed to delete manifest", "failed");
-                }
-            );
-        });
-    });
+	const apsFormats = $("#apsFormats");
+	apsFormats.data("apsFormats", data);
 }
 
 function updateFormats(format) {
-    var apsFormats = $("#apsFormats");
-    var formats = apsFormats.data("apsFormats");
+    const apsFormats = $("#apsFormats");
+    const formats = apsFormats.data("apsFormats");
     apsFormats.empty();
 
     // obj is not listed for all possible files
@@ -643,14 +613,13 @@ function updateFormats(format) {
 // the logged in user
 /////////////////////////////////////////////////////////////////
 
-var haveBIM360Hub = false;
-
 function prepareFilesTree() {
     console.log("prepareFilesTree");
-    $.getJSON("/api/aps/clientID", function (res) {
+    $.getJSON("/api/aps/clientID", res => {
         $("#ClientID").val(res.ClientId);
     });
 
+	let haveBIM360Hub = false;
     $("#apsFiles")
         .jstree({
             core: {
@@ -660,12 +629,12 @@ function prepareFilesTree() {
                     cache: false,
                     url: "/dm/treeNode",
                     dataType: "json",
-                    data: function (node) {
+                    data: node => {
                         return {
                             href: node.id === "#" ? "#" : node.original.href,
                         };
                     },
-                    success: function (nodes) {
+                    success: nodes => {
                         nodes.forEach(function (n) {
                             if (n.type === "hubs" && n.href.indexOf("b.") > 0)
                                 haveBIM360Hub = true;
@@ -673,7 +642,7 @@ function prepareFilesTree() {
 
                         if (!haveBIM360Hub) {
                             $("#provisionAccountModal").modal();
-                            $("#provisionAccountSave").click(function () {
+                            $("#provisionAccountSave").click(() => {
                                 $("#provisionAccountModal").modal("toggle");
                                 $("#apsFiles").jstree(true).refresh();
                             });
@@ -711,7 +680,7 @@ function prepareFilesTree() {
                 items: filesTreeContextMenu,
             },
         })
-        .bind("select_node.jstree", function (evt, data) {
+        .bind("select_node.jstree", (evt, data) => {
             // Clean up previous instance
             cleanupViewer();
 
@@ -732,8 +701,6 @@ function prepareFilesTree() {
             if (data.node.type === "versions") {
                 $("#deleteManifest").removeAttr("disabled");
                 $("#uploadFile").removeAttr("disabled");
-
-                MyVars.keepTrying = true;
 
                 // Clear hierarchy tree
                 $("#apsHierarchy").empty().jstree("destroy");
@@ -801,7 +768,7 @@ function prepareFilesTree() {
 function downloadAttachment(href, attachmentVersionId) {
     console.log("downloadAttachment for href=" + href);
     // fileName = file name you want to use for download
-    var url =
+    const url =
         window.location.protocol +
         "//" +
         window.location.host +
@@ -816,7 +783,7 @@ function downloadAttachment(href, attachmentVersionId) {
 function downloadFile(href) {
     console.log("downloadFile for href=" + href);
     // fileName = file name you want to use for download
-    var url =
+    const url =
         window.location.protocol +
         "//" +
         window.location.host +
@@ -856,7 +823,7 @@ function filesTreeContextMenu(node, callback) {
             data: { href: node.original.href },
             type: "GET",
             success: function (data) {
-                var menuItems = {};
+                const menuItems = {};
                 menuItems["download"] = {
                     label: "Download",
                     action: function (obj) {
@@ -869,7 +836,7 @@ function filesTreeContextMenu(node, callback) {
                         item.meta.extension.type ===
                         "auxiliary:autodesk.core:Attachment"
                     ) {
-                        var menuItem = {
+                        const menuItem = {
                             label: item.displayName,
                             action: function (obj) {
                                 alert(
@@ -930,7 +897,7 @@ function filesTreeContextMenu(node, callback) {
 // Shows the hierarchy of components in selected model
 /////////////////////////////////////////////////////////////////
 
-function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
+async function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
     // You need to
     // 1) Post a job
     // 2) Get matadata (find the model guid you need)
@@ -938,41 +905,42 @@ function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
 
     // Get svf export in order to get hierarchy and properties
     // for the model
-    var format = "svf";
-    askForFileType(
-        format,
-        urn,
-        guid,
-        objectIds,
-        rootFileName,
-        fileExtType,
-        function (manifest) {
-            getMetadata(urn, function (guid) {
-                showProgress("Retrieving hierarchy...", "inprogress");
 
-                getHierarchy(urn, guid, function (data) {
-                    showProgress("Retrieved hierarchy", "success");
+	try {
+		const format = "svf";
+		const manifest = await askForFileType(
+			format,
+			urn,
+			guid,
+			objectIds,
+			rootFileName,
+			fileExtType
+		);
+	
+		const viewGuid = await getMetadata(urn);
 
-                    for (var derId in manifest.derivatives) {
-                        var der = manifest.derivatives[derId];
-                        // We just have to make sure there is an svf
-                        // translation, but the viewer will find it
-                        // from the urn
-                        if (der.outputType === "svf") {
-                            initializeViewer(urn);
-                        }
-                    }
+		showProgress("Retrieving hierarchy...", "inprogress");
+		const data = await getHierarchy(urn, viewGuid);
+		showProgress("Retrieved hierarchy", "success");
 
-                    prepareHierarchyTree(urn, guid, data.data);
-                });
-            });
-        }
-    );
+		const der = manifest.derivatives.find(
+			item => item.outputType.includes("svf")
+		);
+
+		if (!der) 
+			return;
+
+		initializeViewer(urn);
+						
+		prepareHierarchyTree(urn, viewGuid, data.data);
+	} catch (err) {
+		console.log(err);
+	}
 }
 
 function addHierarchy(nodes) {
-    for (var nodeId in nodes) {
-        var node = nodes[nodeId];
+    for (let nodeId in nodes) {
+        const node = nodes[nodeId];
 
         // We are also adding properties below that
         // this function might iterate over and we should skip
@@ -980,20 +948,18 @@ function addHierarchy(nodes) {
         if (
             (node.type && node.type === "property") ||
             node.type === "properties"
-        ) {
-            // skip this node
-            var str = "";
-        } else {
-            node.text = node.name;
-            node.children = node.objects;
-            if (node.objectid === undefined) {
-                node.type = "dunno";
-            } else {
-                node.id = node.objectid;
-                node.type = "object";
-            }
-            addHierarchy(node.objects);
-        }
+        ) 
+			continue;
+
+		node.text = node.name;
+		node.children = node.objects;
+		if (node.objectid === undefined) {
+			node.type = "dunno";
+		} else {
+			node.id = node.objectid;
+			node.type = "object";
+		}
+		addHierarchy(node.objects);
     }
 }
 
@@ -1043,19 +1009,18 @@ function prepareHierarchyTree(urn, guid, json) {
                 items: hierarchyTreeContextMenu,
             },
         })
-        .bind("select_node.jstree", function (evt, data) {
+        .bind("select_node.jstree", async (evt, data) => {
             if (data.node.type === "object") {
-                var urn = MyVars.selectedUrn;
-                var guid = MyVars.selectedGuid;
-                var objectId = data.node.original.objectid;
+                const urn = MyVars.selectedUrn;
+                const guid = MyVars.selectedGuid;
+                const objectId = data.node.original.objectid;
 
                 // Empty the property tree
                 $("#apsProperties").empty().jstree("destroy");
 
-                fetchProperties(urn, guid, function (props) {
-                    preparePropertyTree(urn, guid, objectId, props);
-                    selectInViewer([objectId]);
-                });
+                const props = await fetchProperties(urn, guid);
+				preparePropertyTree(urn, guid, objectId, props);
+				selectInViewer([objectId]);
             }
         })
         .bind("check_node.jstree uncheck_node.jstree", function (evt, data) {
@@ -1063,11 +1028,11 @@ function prepareHierarchyTree(urn, guid, json) {
             // caused by a viewer selection which is calling
             // selectInHierarchyTree()
             if (!MyVars.selectingInHierarchyTree) {
-                var elem = $("#apsHierarchy");
-                var nodeIds = elem.jstree("get_checked", null, true);
+                const elem = $("#apsHierarchy");
+                const nodeIds = elem.jstree("get_checked", null, true);
 
                 // Convert from strings to numbers
-                var objectIds = [];
+                const objectIds = [];
                 $.each(nodeIds, function (index, value) {
                     objectIds.push(parseInt(value, 10));
                 });
@@ -1080,15 +1045,13 @@ function prepareHierarchyTree(urn, guid, json) {
 function selectInHierarchyTree(objectIds) {
     MyVars.selectingInHierarchyTree = true;
 
-    var tree = $("#apsHierarchy").jstree();
+    const tree = $("#apsHierarchy").jstree();
 
     // First remove all the selection
     tree.uncheck_all();
 
     // Now select the newly selected items
-    for (var key in objectIds) {
-        var id = objectIds[key];
-
+    for (let id of objectIds) {
         // Select the node
         tree.check_node(id);
 
@@ -1099,18 +1062,18 @@ function selectInHierarchyTree(objectIds) {
     MyVars.selectingInHierarchyTree = false;
 }
 
-function hierarchyTreeContextMenu(node, callback) {
-    var menuItems = {};
+function hierarchyTreeContextMenu(node) {
+    const menuItems = {};
 
-    var menuItem = {
+    const menuItem = {
         label: "Select in Fusion",
         action: function (obj) {
-            var path = $("#apsHierarchy").jstree().get_path(node, "/");
+            const path = $("#apsHierarchy").jstree().get_path(node, "/");
             alert(path);
 
             // Open this in the browser:
             // fusion360://command=open&file=something&properties=MyCustomPropertyValues
-            var url =
+            const url =
                 "fusion360://command=open&file=something&properties=" +
                 encodeURIComponent(path);
             $("#fusionLoader").attr("src", url);
@@ -1118,10 +1081,7 @@ function hierarchyTreeContextMenu(node, callback) {
     };
     menuItems[0] = menuItem;
 
-    //callback(menuItems);
-
-    //return menuItems;
-    return null; // for the time being
+    return null; 
 }
 
 /////////////////////////////////////////////////////////////////
@@ -1133,15 +1093,14 @@ function hierarchyTreeContextMenu(node, callback) {
 // model. So when clicking on the various sub-components in the
 // hierarchy tree we can reuse it instead of sending out another
 // http request
-function fetchProperties(urn, guid, onsuccess) {
-    var props = $("#apsProperties").data("apsProperties");
+async function fetchProperties(urn, guid, onsuccess) {
+    const props = $("#apsProperties").data("apsProperties");
     if (!props) {
-        getProperties(urn, guid, function (data) {
-            $("#apsProperties").data("apsProperties", data.data);
-            onsuccess(data.data);
-        });
+        const data = await getProperties(urn, guid);
+        $("#apsProperties").data("apsProperties", data.data);
+        return data.data;
     } else {
-        onsuccess(props);
+        return props;
     }
 }
 
@@ -1149,14 +1108,14 @@ function fetchProperties(urn, guid, onsuccess) {
 // property node
 function addSubProperties(node, props) {
     node.children = node.children || [];
-    for (var subPropId in props) {
-        var subProp = props[subPropId];
+    for (const subPropId in props) {
+        const subProp = props[subPropId];
         if (subProp instanceof Object) {
-            var length = node.children.push({
+            const length = node.children.push({
                 text: subPropId,
                 type: "properties",
             });
-            var newNode = node.children[length - 1];
+            const newNode = node.children[length - 1];
             addSubProperties(newNode, subProp);
         } else {
             node.children.push({
@@ -1170,8 +1129,8 @@ function addSubProperties(node, props) {
 // Add all the properties of the selected sub-component
 function addProperties(node, props) {
     // Find the relevant property section
-    for (var propId in props) {
-        var prop = props[propId];
+    for (const propId in props) {
+        const prop = props[propId];
         if (prop.objectid === node.objectid) {
             addSubProperties(node, prop.properties);
         }
@@ -1180,7 +1139,7 @@ function addProperties(node, props) {
 
 function preparePropertyTree(urn, guid, objectId, props) {
     // Convert data to expected format
-    var data = { objectid: objectId };
+    const data = { objectid: objectId };
     addProperties(data, props.collection);
 
     // init the tree
@@ -1236,7 +1195,7 @@ function initializeViewer(urn) {
 
     console.log("Launching Autodesk Viewer for: " + urn);
 
-    var options = {
+    const options = {
         document: "urn:" + urn,
         env: "AutodeskProduction2",
         api: "streamingV2",
@@ -1246,8 +1205,8 @@ function initializeViewer(urn) {
     if (MyVars.viewer) {
         loadDocument(MyVars.viewer, options.document);
     } else {
-        var viewerElement = document.getElementById("apsViewer");
-        var config = {
+        const viewerElement = document.getElementById("apsViewer");
+        const config = {
             extensions: ["Autodesk.DocumentBrowser"], // 'Autodesk.Viewing.WebVR', 'Autodesk.Viewing.MarkupsGui', 'Autodesk.AEC.LevelsExtension'],
             //experimental: ['webVR_orbitModel']
         };
@@ -1269,7 +1228,7 @@ function addSelectionListener(viewer) {
         function (event) {
             selectInHierarchyTree(event.dbIdArray);
 
-            var dbId = event.dbIdArray[0];
+            const dbId = event.dbIdArray[0];
             if (dbId) {
                 viewer.getProperties(dbId, function (props) {
                     console.log(props.externalId);
@@ -1281,9 +1240,9 @@ function addSelectionListener(viewer) {
 
 // Get the full path of the selected body
 function getFullPath(tree, dbId) {
-    var path = [];
+    const path = [];
     while (dbId) {
-        var name = tree.getNodeName(dbId);
+        const name = tree.getNodeName(dbId);
         path.unshift(name);
         dbId = tree.getNodeParentId(dbId);
     }
@@ -1296,14 +1255,14 @@ function getFullPath(tree, dbId) {
 }
 
 function showAllProperties(viewer) {
-    var instanceTree = viewer.model.getData().instanceTree;
+    const instanceTree = viewer.model.getData().instanceTree;
 
-    var allDbIds = Object.keys(instanceTree.nodeAccess.dbIdToIndex);
+    const allDbIds = Object.keys(instanceTree.nodeAccess.dbIdToIndex);
 
-    for (var key in allDbIds) {
-        var id = allDbIds[key];
+    for (const key in allDbIds) {
+        const id = allDbIds[key];
         viewer.model.getProperties(id, function (data) {
-            var str = "";
+            const str = "";
         });
     }
 }
@@ -1312,12 +1271,12 @@ function showAllProperties(viewer) {
 // to check for body sepcific data in our mongo db
 // Call this once the Viewer has been set up
 function addFusionButton(viewer) {
-    var button = new Autodesk.Viewing.UI.Button("toolbarFusion");
+    const button = new Autodesk.Viewing.UI.Button("toolbarFusion");
     button.onClick = function (e) {
-        var ids = viewer.getSelection();
+        const ids = viewer.getSelection();
         if (ids.length === 1) {
-            var tree = viewer.model.getInstanceTree();
-            var fullPath = getFullPath(tree, ids[0]);
+            const tree = viewer.model.getInstanceTree();
+            const fullPath = getFullPath(tree, ids[0]);
             console.log(fullPath);
 
             $.ajax({
@@ -1343,7 +1302,7 @@ function addFusionButton(viewer) {
     button.setToolTip("Show Fusion properties");
 
     // SubToolbar
-    var subToolbar = new Autodesk.Viewing.UI.ControlGroup("myFusionAppGroup");
+    const subToolbar = new Autodesk.Viewing.UI.ControlGroup("myFusionAppGroup");
     subToolbar.addControl(button);
 
     if (viewer.toolbar) {
@@ -1394,13 +1353,13 @@ function selectInViewer(objectIds) {
 /////////////////////////////////////////////////////////////////
 
 function showProgress(text, status) {
-    var progressInfo = $("#progressInfo");
-    var progressInfoText = $("#progressInfoText");
-    var progressInfoIcon = $("#progressInfoIcon");
+    const progressInfo = $("#progressInfo");
+    const progressInfoText = $("#progressInfoText");
+    const progressInfoIcon = $("#progressInfoIcon");
 
-    var oldClasses = progressInfo.attr("class");
-    var newClasses = "";
-    var newText = text;
+    const oldClasses = progressInfo.attr("class");
+    let newClasses = "";
+    let newText = text;
 
     if (status === "failed") {
         newClasses = "btn btn-danger";
