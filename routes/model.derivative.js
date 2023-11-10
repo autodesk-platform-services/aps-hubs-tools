@@ -141,7 +141,9 @@ router.post('/export', jsonParser, function (req, res) {
         "type": req.body.format
     };
 
-    if (req.body.format === 'svf') {
+	const region = req.body.region || 'US';
+
+    if (req.body.format.startsWith('svf')) {
         item.views = ['2d', '3d'];
     }
 
@@ -170,12 +172,13 @@ router.post('/export', jsonParser, function (req, res) {
     //var input = {"urn": req.body.urn};
     var output = {
         "destination": {
-            "region": "us"
+            "region": region
         },
         "formats": [item]
     };
 
     var derivatives = new apsSDK.DerivativesApi();
+	derivatives.region = region;
 
     console.log("input", input);    
 

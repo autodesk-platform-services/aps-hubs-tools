@@ -4,6 +4,10 @@ const MyVars = {
 
 $(document).ready(function () {
     //debugger;
+
+	const url = new URL(window.location.href);
+	MyVars.useSvf2 = (url.searchParams.get("usesvf2") != null);
+
     $("#hiddenFrame").attr("src", "");
 
     // Make sure that "change" event is fired
@@ -144,11 +148,11 @@ async function onDownloadExport() {
 
 		if (!derUrns) {
 			showProgress(
-				"Could not find specific OBJ file",
+				"Could not find specific file",
 				"failed"
 			);
 			console.log(
-				"askForFileType, Did not find the OBJ translation with the correct list of objectIds"
+				"askForFileType, Did not find the translation with the correct list of objectIds"
 			);
 			return;
 		}
@@ -254,7 +258,7 @@ async function signIn() {
 async function signOut() {
     // Delete session data both locally and on the server
     MyVars.token = null;
-    await fetch("/user/signOut");
+    await fetch("/user/logoff");
 
     let loadCount = 0;
     $("#hiddenFrame").on("load", function (data) {
@@ -382,7 +386,7 @@ function getDerivativeUrns(
 }
 
 // OBJ: guid & objectIds are also needed
-// SVF, STEP, STL, IGES:
+// SVF/SVF2, STEP, STL, IGES:
 // Posts the job then waits for the manifest and then download the file
 // if it's created
 async function askForFileType(
@@ -443,7 +447,7 @@ async function getMetadata(urn) {
 	const response = await fetch("/md/metadatas/" + urn);
 
 	if (!response.ok) {
-		console.log("GET /md/metadata call failed\n" + response.statusText);
+		console.log("GET /md/metadatas call failed\n" + response.statusText);
 		throw new Error(response.statusText);
 	}
 
@@ -568,24 +572,18 @@ async function deleteManifest(urn) {
 // Shows the export file formats available for the selected model
 /////////////////////////////////////////////////////////////////
 
-async function getFormats() {
-    console.log("getFormats");
+async function fillFormats() {
+	console.log("fillFormats");
 
-	const response = await fetch("/md/formats");
+    const response = await fetch("/md/formats");
 
 	if (!response.ok) {
 		console.log("GET /md/formats call failed\n" + err.statusText);
-		throw new Error(response.statusText);
+		return;
 	}
 
 	const data = await response.json();
 	console.log(data);
-
-	return data;
-}
-
-async function fillFormats() {
-    const data = await getFormats();
 
 	const apsFormats = $("#apsFormats");
 	apsFormats.data("apsFormats", data);
@@ -680,89 +678,91 @@ function prepareFilesTree() {
                 items: filesTreeContextMenu,
             },
         })
-        .bind("select_node.jstree", (evt, data) => {
-            // Clean up previous instance
-            cleanupViewer();
-
-            console.log("Selected item's ID/URN: " + data.node.original.wipid);
-
-            // Disable the hierarchy related controls for the time being
-            $("#apsFormats").attr("disabled", "disabled");
-            $("#downloadExport").attr("disabled", "disabled");
-
-            if (data.node.type === "folders") {
-                $("#uploadFile2").removeAttr("disabled");
-            } else {
-                $("#uploadFile2").attr("disabled", "disabled");
-            }
-
-            MyVars.selectedNode = data.node;
-
-            if (data.node.type === "versions") {
-                $("#deleteManifest").removeAttr("disabled");
-                $("#uploadFile").removeAttr("disabled");
-
-                // Clear hierarchy tree
-                $("#apsHierarchy").empty().jstree("destroy");
-
-                // Clear properties tree
-                $("#apsProperties").empty().jstree("destroy");
-
-                // Delete cached data
-                $("#apsProperties").data("apsProperties", null);
-
-                updateFormats(data.node.original.fileType);
-
-                // Store info on selected file
-                MyVars.rootFileName = data.node.original.rootFileName;
-                MyVars.fileName = data.node.original.fileName;
-                MyVars.fileExtType = data.node.original.fileExtType;
-
-                if ($("#wipVsStorage").hasClass("active")) {
-                    console.log("Using WIP id");
-                    MyVars.selectedUrn = base64encode(data.node.original.wipid);
-                } else {
-                    console.log("Using Storage id");
-                    MyVars.selectedUrn = base64encode(
-                        data.node.original.storage
-                    );
-                }
-
-                // Fill hierarchy tree
-                // format, urn, guid, objectIds, rootFileName, fileExtType
-                showHierarchy(
-                    MyVars.selectedUrn,
-                    null,
-                    null,
-                    MyVars.rootFileName,
-                    MyVars.fileExtType
-                );
-                console.log(
-                    "data.node.original.storage = " +
-                        data.node.original.storage,
-                    "data.node.original.wipid = " + data.node.original.wipid,
-                    ", data.node.original.fileName = " +
-                        data.node.original.fileName,
-                    ", data.node.original.fileExtType = " +
-                        data.node.original.fileExtType
-                );
-
-                // Show in viewer
-                //initializeViewer(data.node.data);
-            } else {
-                $("#deleteManifest").attr("disabled", "disabled");
-                $("#uploadFile").attr("disabled", "disabled");
-
-                // Just open the children of the node, so that it's easier
-                // to find the actual versions
-                $("#apsFiles").jstree("open_node", data.node);
-
-                // And clear trees to avoid confusion thinking that the
-                // data belongs to the clicked model
-                $("#apsHierarchy").empty().jstree("destroy");
-                $("#apsProperties").empty().jstree("destroy");
-            }
+		.bind("select_node.jstree", async (evt, data) => {
+			onSelect(data.node, false);
+		})
+        .bind("dblclick.jstree", (evt) => {
+			//const node = $("#apsFiles").jstree().get_node(evt.target);
+            //onSelect(node, true);
         });
+}
+
+async function onSelect(node, doTranslate) {
+	// Clean up previous instance
+	cleanupViewer();
+
+	console.log("Selected item's ID/URN: " + node.original.wipid);
+
+	// Disable the hierarchy related controls for the time being
+	$("#apsFormats").attr("disabled", "disabled");
+	$("#downloadExport").attr("disabled", "disabled");
+
+	if (node.type === "folders") {
+		$("#uploadFile2").removeAttr("disabled");
+	} else {
+		$("#uploadFile2").attr("disabled", "disabled");
+	}
+
+	MyVars.selectedNode = node;
+
+	if (node.type === "versions") {
+		$("#deleteManifest").removeAttr("disabled");
+		$("#uploadFile").removeAttr("disabled");
+
+		// Clear hierarchy tree
+		$("#apsHierarchy").empty().jstree("destroy");
+
+		// Clear properties tree
+		$("#apsProperties").empty().jstree("destroy");
+
+		// Delete cached data
+		$("#apsProperties").data("apsProperties", null);
+
+		updateFormats(node.original.fileType);
+
+		// Store info on selected file
+		MyVars.rootFileName = node.original.rootFileName;
+		MyVars.fileName = node.original.fileName;
+		MyVars.fileExtType = node.original.fileExtType;
+		MyVars.selectedUrn = base64encode(
+			node.original.wipid
+		);
+
+		// Fill hierarchy tree
+		// format, urn, guid, objectIds, rootFileName, fileExtType
+		showHierarchy(
+			MyVars.selectedUrn,
+			null,
+			null,
+			MyVars.rootFileName,
+			MyVars.fileExtType,
+			doTranslate
+		);
+		console.log(
+			"node.original.storage = " +
+				node.original.storage,
+			"node.original.wipid = " + node.original.wipid,
+			", node.original.fileName = " +
+				node.original.fileName,
+			", node.original.fileExtType = " +
+				node.original.fileExtType
+		);
+
+		// Show in viewer
+		//initializeViewer(node.data);
+	} else {
+		$("#deleteManifest").attr("disabled", "disabled");
+		$("#uploadFile").attr("disabled", "disabled");
+
+		// Just open the children of the node, so that it's easier
+		// to find the actual versions
+		$("#apsFiles").jstree("open_node", node);
+
+		// And clear trees to avoid confusion thinking that the
+		// data belongs to the clicked model
+		$("#apsHierarchy").empty().jstree("destroy");
+		$("#apsProperties").empty().jstree("destroy");
+	}
 }
 
 function downloadAttachment(href, attachmentVersionId) {
@@ -823,11 +823,18 @@ function filesTreeContextMenu(node, callback) {
             data: { href: node.original.href },
             type: "GET",
             success: function (data) {
-                const menuItems = {};
+                let menuItems = {};
                 menuItems["download"] = {
                     label: "Download",
                     action: function (obj) {
                         downloadFile(obj.item.href);
+                    },
+                    href: node.original.href,
+                };
+				menuItems["translate"] = {
+                    label: "Translate",
+                    action: function () {
+                        onSelect(node, true);
                     },
                     href: node.original.href,
                 };
@@ -877,7 +884,7 @@ function filesTreeContextMenu(node, callback) {
                     }
                 });
 
-                if (Object.keys(menuItems).length < 2) {
+                if (Object.keys(menuItems).length < 3) {
                     menuItems["noItem"] = {
                         label: "No attachments",
                         action: function () {},
@@ -897,7 +904,7 @@ function filesTreeContextMenu(node, callback) {
 // Shows the hierarchy of components in selected model
 /////////////////////////////////////////////////////////////////
 
-async function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
+async function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType, doTranslate) {
     // You need to
     // 1) Post a job
     // 2) Get matadata (find the model guid you need)
@@ -907,15 +914,20 @@ async function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
     // for the model
 
 	try {
-		const format = "svf";
-		const manifest = await askForFileType(
-			format,
-			urn,
-			guid,
-			objectIds,
-			rootFileName,
-			fileExtType
-		);
+		const format = MyVars.useSvf2 ? "svf2" : "svf";
+		let manifest = null;
+		if (doTranslate) {
+			manifest = await askForFileType(
+				format,
+				urn,
+				guid,
+				objectIds,
+				rootFileName,
+				fileExtType
+			);
+		} else {
+			manifest = await getManifest(urn);
+		}
 	
 		const viewGuid = await getMetadata(urn);
 
@@ -924,7 +936,7 @@ async function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
 		showProgress("Retrieved hierarchy", "success");
 
 		const der = manifest.derivatives.find(
-			item => item.outputType.includes("svf")
+			item => item.outputType.startsWith("svf")
 		);
 
 		if (!der) 
@@ -934,6 +946,7 @@ async function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
 						
 		prepareHierarchyTree(urn, viewGuid, data.data);
 	} catch (err) {
+		showProgress("Translation failed", "failed");
 		console.log(err);
 	}
 }
