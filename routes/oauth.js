@@ -27,7 +27,7 @@ var apsSDK = require('forge-apis');
 // APS config information, such as client ID and secret
 var config = require('../config');
 
-var cryptiles = require('cryptiles');
+var crypto = require('crypto');
 
 // this end point will logoff the user by destroying the session
 // as of now there is no APS endpoint to invalidate tokens
@@ -60,7 +60,7 @@ router.get('/user/token', function (req, res) {
 
 // return the APS authenticate url
 router.get('/user/authenticate', function (req, res) {
-  req.session.csrf = cryptiles.randomString(24);
+  req.session.csrf = crypto.randomBytes(24).toString('hex');
 
   console.log('using csrf: ' + req.session.csrf);
 

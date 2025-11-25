@@ -57,10 +57,10 @@ function uploadFile(projectId, folderId, fileName, fileSize, fileTempPath, isCom
                 fs.readFile(fileTempPath, function (err, fileData) {
                     // Upload the new file
                     var objects = new apsSDK.ObjectsApi();
-                    objects.uploadObject(bucketKeyObjectName.bucketKey, bucketKeyObjectName.objectName, fileSize, fileData, {}, null, req.session.internal)
+                    objects.uploadResources(bucketKeyObjectName.bucketKey, [{ objectKey: bucketKeyObjectName.objectName, data: fileData}], {}, null, req.session.internal)
                         .then(function (objectData) {
                             console.log('uploadObject: succeeded');
-                            _resolve(objectData.body.objectId);
+                            _resolve(objectData[0].completed.objectId);
                         })
                         .catch(function (error) {
                             console.log('uploadObject: failed');
@@ -183,12 +183,12 @@ router.get('/attachments', function (req, res) {
                 })
                 .catch(function (error) {
                     console.log('Parallel getVersion: failed', error);
-                    res.status(error.statusCode).end('Parallel getVersion: failed');
+                    res.status(error.statusCode || error.response.status).end('Parallel getVersion: failed');
                 })
         })
         .catch(function(error) {
             console.log('getVersionRelationshipsRef: failed', error);
-            res.status(error.statusCode).end('getVersionRelationshipsRef: failed');
+            res.status(error.statusCode || error.response.status).end('getVersionRelationshipsRef: failed');
         });
 });
 
@@ -221,12 +221,12 @@ router.get('/attachments/:attachment', function (req, res) {
                 })
                 .catch(function (error) {
                     console.log('getObject: failed');
-                    res.status(error.statusCode).end('getObject: failed');
+                    res.status(error.statusCode || error.response.status).end('getObject: failed');
                 })
         })
         .catch(function (error) {
             console.log('getVersion: failed', error);
-            res.status(error.statusCode).end('getVersion: failed');
+            res.status(error.statusCode || error.response.status).end('getVersion: failed');
         });
 });
 
@@ -247,7 +247,7 @@ router.delete('/attachments/:attachment', function (req, res) {
             res.json(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error.statusCode || error.response.status).end(error.statusMessage);
         });
 });
 
@@ -281,7 +281,7 @@ router.get('/files/:file', function (req, res) {
                     })
                     .catch(function (error) {
                         console.log('getObject: failed', error);
-                        res.status(error.statusCode).end('getObject: failed');
+                        res.status(error.statusCode || error.response.status).end('getObject: failed');
                     })
             } catch (error) {
                 res.status(500).end('Could not find storage!');
@@ -290,7 +290,7 @@ router.get('/files/:file', function (req, res) {
         })
         .catch(function (error) {
             console.log('getVersion: failed', error);
-            res.status(error.statusCode).end('getVersion: failed');
+            res.status(error.statusCode || error.response.status).end('getVersion: failed');
         });
 });
 
@@ -351,7 +351,7 @@ router.post('/files', jsonParser, function (req, res) {
                     folderId = await getFolderId(projectId, versionId, req)
                 } catch (error) {
                     console.log('getFolderId: failed', error);
-                    res.status(error.statusCode).end('getFolderId: failed');
+                    res.status(error.statusCode || error.response.status).end('getFolderId: failed');
                     return;
                 }
             }
@@ -364,7 +364,7 @@ router.post('/files', jsonParser, function (req, res) {
                 var objectId = await uploadFile(projectId, folderId, uploadedFile.name, uploadedFile.size, uploadedFile.path, isComposite, req);
             } catch (error) {
                 console.log('uploadFile: failed', error);
-                res.status(error.statusCode).end('uploadFile: failed');
+                res.status(error.statusCode || error.response.status).end('uploadFile: failed');
                 return;
             }
 
@@ -376,7 +376,7 @@ router.post('/files', jsonParser, function (req, res) {
                 //if (error.statusBody?.errors?.[0]) {
                     //text = error.statusBody?.errors?[0];
                 //}
-                res.status(error.statusCode).end('createNewItemVersion: failed');
+                res.status(error.statusCode || error.response.status).end('createNewItemVersion: failed');
                 return;
             }
                
@@ -385,7 +385,7 @@ router.post('/files', jsonParser, function (req, res) {
                     await attachVersionToAnotherVersion(projectId, versionId, attachmentVersionId, req);
                 } catch (error) {
                     console.log('attachVersionToAnotherVersion: failed', error);
-                    res.status(error.statusCode).end('attachVersionToAnotherVersion: failed');
+                    res.status(error.statusCode || error.response.status).end('attachVersionToAnotherVersion: failed');
                     return;
                 }
             }
@@ -572,7 +572,9 @@ function versionSpecData(fileName, projectId, itemId, objectId, isComposite) {
 }
 
 function attachmentSpecData(versionId, projectId) {
-    var extensionType = projectId.startsWith("a.") ? "auxiliary:autodesk.core:Attachment" : "derived:autodesk.bim360:FileToDocument";
+    //var extensionType = projectId.startsWith("a.") ? "auxiliary:autodesk.core:Attachment" : "derived:autodesk.bim360:FileToDocument";
+
+    var extensionType = "auxiliary:autodesk.core:Attachment";
 
     var attachmentSpec = {
         "jsonapi": {
