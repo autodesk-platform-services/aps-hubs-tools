@@ -80,13 +80,21 @@ router.get('/metadatas/:urn', function (req, res) {
 // Get the hierarchy information for the model with the given
 // guid inside the file with the provided urn
 /////////////////////////////////////////////////////////////////
+function sanitize(obj) {
+  return s.replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;')
+    .replace(/"/g, '&#34;');
+}
+
 router.get('/hierarchy', function (req, res) {
     var derivatives = new apsSDK.DerivativesApi();
 
     derivatives.getModelviewMetadata(req.query.urn, req.query.guid, {}, null, req.session.internal)
         .then(function (metaData) {
             if (metaData.body.data) {
-                res.json(metaData.body);
+                res.json(sanitizeAllValues(metaData.body));
             } else {
                 res.json({result: 'accepted'});
             }
@@ -105,7 +113,7 @@ router.get('/properties', function (req, res) {
 
     derivatives.getModelviewProperties(req.query.urn, req.query.guid, {}, null, req.session.internal)
         .then(function (data) {
-            res.json(data.body);
+            res.json(sanitizeAllValues(data.body));
         })
         .catch(function (error) {
             res.status(error.statusCode).end(error.statusMessage);
@@ -190,6 +198,55 @@ router.post('/export', jsonParser, function (req, res) {
             res.status(error.statusCode).end(error.statusMessage);
         });
 });
+
+/////////////////////////////////////////////////////////////////
+// Utility function to recursively modify all values in an object
+// at all levels (deep traversal)
+// 
+// @param {Object|Array} obj - The object or array to modify
+// @param {Function} modifierFn - Function that takes a value and returns the modified value
+// @returns {Object|Array} - New object/array with all values modified
+/////////////////////////////////////////////////////////////////
+function sanitize(s) {
+    if (typeof s !== 'string') 
+        return s;
+
+    return s.replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/'/g, '&#39;')
+        .replace(/"/g, '&#34;');
+}
+
+function sanitizeAllValues(obj) {
+    return modifyAllValues(obj, sanitize);
+}
+
+function modifyAllValues(obj, modifierFn) {
+    // Handle null or undefined
+    if (obj === null || obj === undefined) {
+        return modifierFn(obj);
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+        return obj.map(item => modifyAllValues(item, modifierFn));
+    }
+
+    // Handle objects
+    if (typeof obj === 'object') {
+        const result = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                result[key] = modifyAllValues(obj[key], modifierFn);
+            }
+        }
+        return result;
+    }
+
+    // Handle primitive values (string, number, boolean, etc.)
+    return modifierFn(obj);
+}
 
 /////////////////////////////////////////////////////////////////
 // Return the router object that contains the endpoints
