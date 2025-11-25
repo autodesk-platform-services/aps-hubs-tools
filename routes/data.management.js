@@ -684,6 +684,14 @@ router.get('/treeNode', function (req, res) {
     }
 });
 
+function sanitize(s) {
+  return s.replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;')
+    .replace(/"/g, '&#34;');
+}
+
 /////////////////////////////////////////////////////////////////
 // Collects the information that we need to pass to the
 // file tree object on the client
@@ -718,6 +726,7 @@ function makeTree(items, canHaveChildren, data) {
             type: item.type,
             children: canHaveChildren
         };
+        treeItem.text = sanitize(treeItem.text);
         console.log(treeItem);
         treeList.push(treeItem);
     });
