@@ -724,7 +724,8 @@ function makeTree(items, canHaveChildren, data) {
             fileExtType: (item.attributes && item.attributes.extension ? item.attributes.extension.type : null),
             fileType: fileExt,
             type: item.type,
-            children: canHaveChildren
+            children: canHaveChildren,
+            region: item?.attributes?.region,
         };
         treeItem.text = sanitize(treeItem.text);
         console.log(treeItem);

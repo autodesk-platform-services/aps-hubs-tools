@@ -603,6 +603,10 @@ function prepareFilesTree() {
                     nodes.forEach(function (n) {
                         if (n.type === 'hubs' && n.href.indexOf('b.') > 0)
                             haveBIM360Hub = true;
+
+                        if (n.region) {
+                            n.text += ` [${n.region}]`
+                        }
                     });
 
                     if (!haveBIM360Hub) {
