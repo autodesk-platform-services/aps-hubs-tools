@@ -585,6 +585,9 @@ function getRegion(node) {
         node = $('#apsFiles').jstree().get_node(node.parent);
         if (node?.original?.region)
             return node.original.region;
+
+        if (!node.parent)
+            return null;    
     }    
 }
 
