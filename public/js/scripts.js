@@ -580,6 +580,14 @@ function updateFormats(format) {
 
 var haveBIM360Hub = false;
 
+function getRegion(node) {
+    while (true) {
+        node = $('#apsFiles').jstree().get_node(node.parent);
+        if (node?.original?.region)
+            return node.original.region;
+    }    
+}
+
 function prepareFilesTree() {
     console.log("prepareFilesTree");
     $.getJSON("/api/aps/clientID", function (res) {
@@ -667,6 +675,9 @@ function prepareFilesTree() {
         MyVars.selectedNode = data.node;
 
         if (data.node.type === 'versions') {
+            const region = getRegion(data.node);
+            console.log("Region of selected file: " + region);
+
             $("#deleteManifest").removeAttr('disabled');
             $("#uploadFile").removeAttr('disabled');
 
