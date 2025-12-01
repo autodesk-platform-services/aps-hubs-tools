@@ -1,5 +1,6 @@
 var MyVars = {
-    keepTrying: true
+    keepTrying: true,
+    svfType: 'svf2'
 };
 
 $(document).ready(function () {
@@ -283,7 +284,8 @@ function askForFileType(format, urn, guid, objectIds, rootFileName, fileExtType,
                 format: format,
                 advanced: advancedOptions[format],
                 rootFileName: rootFileName,
-                fileExtType: fileExtType
+                fileExtType: fileExtType,
+                region: MyVars.region
             }
         )
     }).done(function (data) {
@@ -292,7 +294,7 @@ function askForFileType(format, urn, guid, objectIds, rootFileName, fileExtType,
         if (data.result === 'success' // newly submitted data
             || data.result === 'created') { // already submitted data
             getManifest(urn, function (res) {
-                onsuccess(res);
+                onsuccess && onsuccess(res);
             });
         }
     }).fail(function(err) {
@@ -306,7 +308,8 @@ function getMetadata(urn, onsuccess) {
     console.log("getMetadata for urn=" + urn);
     $.ajax({
         url: '/md/metadatas/' + urn,
-        type: 'GET'
+        type: 'GET',
+        data: {region: MyVars.region}
     }).done(function (data) {
         console.log(data);
 
@@ -320,9 +323,7 @@ function getMetadata(urn, onsuccess) {
             getManifest(urn, function () {});
         } else {
             var guid = md0.guid;
-            if (onsuccess !== undefined) {
-                onsuccess(guid);
-            }
+            onsuccess && onsuccess(guid);
         }
     }).fail(function(err) {
         console.log('GET /md/metadata call failed\n' + err.statusText);
@@ -334,7 +335,7 @@ function getHierarchy(urn, guid, onsuccess) {
     $.ajax({
         url: '/md/hierarchy',
         type: 'GET',
-        data: {urn: urn, guid: guid}
+        data: {urn: urn, guid: guid, region: MyVars.region}
     }).done(function (data) {
         console.log(data);
 
@@ -354,9 +355,7 @@ function getHierarchy(urn, guid, onsuccess) {
         }
 
         // We got what we want
-        if (onsuccess !== undefined) {
-            onsuccess(data);
-        }
+        onsuccess && onsuccess(data);
     }).fail(function(err) {
         console.log('GET /md/hierarchy call failed\n' + err.statusText);
     });
@@ -367,13 +366,10 @@ function getProperties(urn, guid, onsuccess) {
     $.ajax({
         url: '/md/properties',
         type: 'GET',
-        data: {urn: urn, guid: guid}
+        data: {urn: urn, guid: guid, region: MyVars.region}
     }).done(function (data) {
         console.log(data);
-
-        if (onsuccess !== undefined) {
-            onsuccess(data);
-        }
+        onsuccess && onsuccess(data);
     }).fail(function(err) {
         console.log('GET /api/properties call failed\n' + err.statusText);
     });
@@ -383,7 +379,8 @@ function getManifest(urn, onsuccess) {
     console.log("getManifest for urn=" + urn);
     $.ajax({
         url: '/md/manifests/' + urn,
-        type: 'GET'
+        type: 'GET',
+        data: {region: MyVars.region}
     }).done(function (data) {
         console.log(data);
 
@@ -402,7 +399,7 @@ function getManifest(urn, onsuccess) {
                 }
             } else {
                 showProgress("Translation completed", data.status);
-                onsuccess(data);
+                onsuccess && onsuccess(data);
             }
         // if it's a failed translation best thing is to delete it
         } else {
@@ -419,14 +416,12 @@ function getManifest(urn, onsuccess) {
 function delManifest(urn, onsuccess, onerror) {
     console.log("delManifest for urn=" + urn);
     $.ajax({
-        url: '/md/manifests/' + urn,
-        type: 'DELETE'
+        url: '/md/manifests/' + urn + '?region=' + MyVars.region,
+        type: 'DELETE',
     }).done(function (data) {
         console.log(data);
         if (data.result === 'success') {
-            if (onsuccess !== undefined) {
-                onsuccess(data);
-            }
+            onsuccess && onsuccess(data);
         }
     }).fail(function(err) {
         console.log('DELETE /api/manifest call failed\n' + err.statusText);
@@ -449,9 +444,7 @@ function getFormats(onsuccess) {
     }).done(function (data) {
         console.log(data);
 
-        if (onsuccess !== undefined) {
-            onsuccess(data);
-        }
+        onsuccess && onsuccess(data);
     }).fail(function(err) {
         console.log('GET /md/formats call failed\n' + err.statusText);
     });
@@ -678,8 +671,8 @@ function prepareFilesTree() {
         MyVars.selectedNode = data.node;
 
         if (data.node.type === 'versions') {
-            const region = getRegion(data.node);
-            console.log("Region of selected file: " + region);
+            MyVars.region = getRegion(data.node);
+            console.log("Region of selected file: " + MyVars.region);
 
             $("#deleteManifest").removeAttr('disabled');
             $("#uploadFile").removeAttr('disabled');
@@ -774,9 +767,7 @@ function deleteAttachment(href, attachmentVersionId) {
     }).done(function (data) {
         console.log(data);
         if (data.status === 'success') {
-            if (onsuccess !== undefined) {
-                onsuccess(data);
-            }
+            onsuccess && onsuccess(data);
         }
     }).fail(function(err) {
         console.log('DELETE /api/manifest call failed\n' + err.statusText);
@@ -791,6 +782,13 @@ function filesTreeContextMenu(node, callback) {
             type: 'GET',
             success: function (data) {
                 var menuItems = {};
+                menuItems["generateSVF"] = {
+                    "label": "Generate SVF",
+                    "action": function (obj) {
+                        askForFileType(MyVars.svfType, MyVars.selectedUrn, MyVars.selectedGuid, null, MyVars.rootFileName, MyVars.fileExtType);
+                    },
+                    "href": node.original.href
+                };
                 menuItems["download"] = {
                     "label": "Download",
                     "action": function (obj) {
@@ -860,8 +858,11 @@ function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
 
     // Get svf export in order to get hierarchy and properties
     // for the model
-    var format = 'svf';
-    askForFileType(format, urn, guid, objectIds, rootFileName, fileExtType, function (manifest) {
+    //var format = 'svf';
+    //askForFileType(format, urn, guid, objectIds, rootFileName, fileExtType, function (manifest) {
+
+    /*
+    getManifest(urn, function (manifest) {
         getMetadata(urn, function (guid) {
             showProgress("Retrieving hierarchy...", "inprogress");
 
@@ -873,7 +874,7 @@ function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
                     // We just have to make sure there is an svf
                     // translation, but the viewer will find it
                     // from the urn
-                    if (der.outputType === 'svf') {
+                    if (der.outputType.startsWith('svf')) {
 
                         initializeViewer(urn);
                     }
@@ -881,6 +882,19 @@ function showHierarchy(urn, guid, objectIds, rootFileName, fileExtType) {
 
                 prepareHierarchyTree(urn, guid, data.data);
             });
+        });
+    });
+    */
+
+    initializeViewer(urn);
+
+    getMetadata(urn, function (guid) {
+        showProgress("Retrieving hierarchy...", "inprogress");
+
+        getHierarchy(urn, guid, function (data) {
+            showProgress("Retrieved hierarchy", "success");
+ 
+            prepareHierarchyTree(urn, guid, data.data);
         });
     });
 }
@@ -1038,10 +1052,10 @@ function fetchProperties(urn, guid, onsuccess) {
     if (!props) {
         getProperties(urn, guid, function(data) {
             $("#apsProperties").data("apsProperties", data.data);
-            onsuccess(data.data);
+            onsuccess && onsuccess(data.data);
         })
     } else {
-        onsuccess(props);
+        onsuccess && onsuccess(props);
     }
 }
 
@@ -1134,12 +1148,12 @@ function initializeViewer(urn) {
 
     console.log("Launching Autodesk Viewer for: " + urn);
 
-
-    
+    Autodesk.Viewing.FeatureFlags.set('DS_ENDPOINTS', true);
 
     var options = {
         document: 'urn:' + urn,
-        env: 'AutodeskProduction',
+        env: 'AutodeskProduction2',
+        api: 'streamingV2', 
         getAccessToken: get3LegToken // this works fine, but if I pass get3LegToken it only works the first time
     };
 

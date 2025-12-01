@@ -11,6 +11,11 @@ var zlib = require("zlib");
 
 var apsSDK = require('forge-apis');
 
+var sdk = require('@aps_sdk/autodesk-sdkmanager');
+var derivativeSdk = require('@aps_sdk/model-derivative');
+const sdkManager = sdk.SdkManagerBuilder.create().build();
+const modelDerivativeClient = new derivativeSdk.ModelDerivativeClient(sdkManager);
+
 /////////////////////////////////////////////////////////////////
 // Get the list of export file formats supported by the
 // Model Derivative API
@@ -23,7 +28,7 @@ router.get('/formats', function (req, res) {
             res.json(formats.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.statusCode || 500).end(error.statusMessage);
         });
 });
 
@@ -33,26 +38,27 @@ router.get('/formats', function (req, res) {
 // available for this file
 /////////////////////////////////////////////////////////////////
 router.get('/manifests/:urn', function (req, res) {
-    var derivatives = new apsSDK.DerivativesApi();
+    const region = req.query.region || 'US';
 
-    derivatives.getManifest(req.params.urn, {}, null, req.session.internal)
+    modelDerivativeClient.getManifest(req.params.urn, { region: region, accessToken: req.session.internal.access_token })
         .then(function (data) {
-            res.json(data.body);
+            res.json(data);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.axiosError?.status || 500).end(error.statusMessage);
         });
 });
 
 router.delete('/manifests/:urn', function (req, res) {
-    var derivatives = new apsSDK.DerivativesApi();
+    const region = req.query.region || 'US';
+
     try {
-        derivatives.deleteManifest(req.params.urn, null, req.session.internal)
+        modelDerivativeClient.deleteManifest(req.params.urn, { region: region, accessToken: req.session.internal.access_token })
             .then(function (data) {
-                res.json(data.body);
+                res.json(data);
             })
             .catch(function (error) {
-                res.status(error.statusCode).end(error.statusMessage);
+                res.status(error?.axiosError?.status || 500).end(error.statusMessage);
             });
 
     } catch (err) {
@@ -65,14 +71,14 @@ router.delete('/manifests/:urn', function (req, res) {
 // the guid of the avilable models in the file
 /////////////////////////////////////////////////////////////////
 router.get('/metadatas/:urn', function (req, res) {
-    var derivatives = new apsSDK.DerivativesApi();
-
-    derivatives.getMetadata(req.params.urn, {}, null, req.session.internal)
+    const region = req.query.region || 'US';
+    
+    modelDerivativeClient.getModelViews(req.params.urn, { region: region, accessToken: req.session.internal.access_token })
         .then(function (data) {
-            res.json(data.body);
+            res.json(data);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.axiosError?.status || 500).end(error.statusMessage);
         });
 });
 
@@ -89,18 +95,18 @@ function sanitize(obj) {
 }
 
 router.get('/hierarchy', function (req, res) {
-    var derivatives = new apsSDK.DerivativesApi();
+    const region = req.query.region || 'US';
 
-    derivatives.getModelviewMetadata(req.query.urn, req.query.guid, {}, null, req.session.internal)
+    modelDerivativeClient.getObjectTree(req.query.urn, req.query.guid, { region: region, accessToken: req.session.internal.access_token })
         .then(function (metaData) {
-            if (metaData.body.data) {
-                res.json(sanitizeAllValues(metaData.body));
+            if (metaData.data) {
+                res.json(sanitizeAllValues(metaData));
             } else {
                 res.json({result: 'accepted'});
             }
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.axiosError?.status || 500).end(error.statusMessage);
         });
 });
 
@@ -109,14 +115,14 @@ router.get('/hierarchy', function (req, res) {
 // with the given guid and file urn
 /////////////////////////////////////////////////////////////////
 router.get('/properties', function (req, res) {
-    var derivatives = new apsSDK.DerivativesApi();
+    const region = req.query.region || 'US';
 
-    derivatives.getModelviewProperties(req.query.urn, req.query.guid, {}, null, req.session.internal)
+    modelDerivativeClient.getAllProperties(req.query.urn, req.query.guid, { region: region, accessToken: req.session.internal.access_token })
         .then(function (data) {
-            res.json(sanitizeAllValues(data.body));
+            res.json(sanitizeAllValues(data));
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.axiosError?.status || 500).end(error.statusMessage);
         });
 });
 
@@ -135,7 +141,7 @@ router.get('/download', function (req, res) {
             res.end(data.body);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.statusCode || 500).end(error.statusMessage);
         });
 });
 
@@ -149,7 +155,7 @@ router.post('/export', jsonParser, function (req, res) {
         "type": req.body.format
     };
 
-    if (req.body.format === 'svf') {
+    if (req.body.format.startsWith('svf')) {
         item.views = ['2d', '3d'];
     }
 
@@ -177,25 +183,25 @@ router.post('/export', jsonParser, function (req, res) {
 
     //var input = {"urn": req.body.urn};
     var output = {
-        "destination": {
-            "region": "us"
-        },
         "formats": [item]
     };
 
-    var derivatives = new apsSDK.DerivativesApi();
+    const region = req.body.region || 'US';
 
-    if (!derivatives)
-        return;
+    //var derivatives = new apsSDK.DerivativesApi();
+
+    //if (!derivatives)
+    //    return;
 
     console.log("input", input);    
 
-    derivatives.translate({"input": input, "output": output}, {}, null, req.session.internal)
+    //derivatives.translate({"input": input, "output": output}, {}, null, req.session.internal)
+    modelDerivativeClient.startJob({ "input": input, "output": output }, { region, accessToken: req.session.internal.access_token })
         .then(function (data) {
-            res.json(data.body);
+            res.json(data);
         })
         .catch(function (error) {
-            res.status(error.statusCode).end(error.statusMessage);
+            res.status(error?.axiosError?.status || 500).end(error.statusMessage);
         });
 });
 
